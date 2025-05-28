@@ -1,4 +1,4 @@
-a# 🚀 OpenAI Chat App - Your AI Conversation Companion
+# 🚀 OpenAI Chat App - Your AI Conversation Companion
 
 > *Where conversations meet cutting-edge AI technology* ✨
 
@@ -424,6 +424,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with ❤️ by [Your Name] | Powered by OpenAI GPT-4o-mini**
+## Built with ❤️ by Ovo Okpubuluku | Powered by OpenAI GPT-4o-mini
 
 *Ready to chat with the future? Deploy your own AI companion today!* 🚀
