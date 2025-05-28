@@ -421,6 +421,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - OpenAI for providing the incredible GPT models
 - Vercel for seamless deployment infrastructure
 - The React and FastAPI communities for amazing frameworks
+- The AI Makerspace Community for the inspiration and guidance
 
 ---
 
