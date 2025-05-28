@@ -1,0 +1,10 @@
+---
+description: 
+globs: *.md
+alwaysApply: false
+---
+### README.md Rules
+
+- When you create README.md's - they should be dope, and use fun and approachable language.
+- While being fun, they should remain technically accurate.
+- Let the README.md explain the step-by-step implementation process for the entire project.
