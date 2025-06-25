@@ -1,13 +1,17 @@
 {
   "version": 2,
+  "functions": {
+    "api/app.py": {
+      "runtime": "@vercel/python"
+    }
+  },
   "builds": [
     {
-      "src": "api/app.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "frontend/dist/**",
-      "use": "@vercel/static"
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "routes": [
@@ -16,16 +20,8 @@
       "dest": "api/app.py"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "frontend/dist/assets/$1"
-    },
-    {
-      "src": "/vite.svg",
-      "dest": "frontend/dist/vite.svg"
-    },
-    {
       "src": "/(.*)",
-      "dest": "frontend/dist/index.html"
+      "dest": "frontend/dist/$1"
     }
   ]
 } 
