@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, memo } from 'react'
 import { PaperAirplaneIcon, KeyIcon } from '@heroicons/react/24/solid'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -45,7 +45,25 @@ function App() {
         },
         body: JSON.stringify({
           user_message: userMessage,
-          developer_message: "You are a helpful AI assistant.",
+          developer_message: `You are a helpful AI assistant. When providing responses:
+
+FORMATTING RULES:
+- Use proper markdown formatting for all text
+- For mathematical expressions, ALWAYS use standard markdown math delimiters:
+  - Inline math: $expression$ 
+  - Display math: $$expression$$
+- NEVER use brackets [ ] or parentheses ( ) around math expressions
+- NEVER use \\[ \\] LaTeX delimiters
+- Use **bold** for emphasis and *italics* when needed
+- Use numbered lists (1. 2. 3.) and bullet points (- item) properly
+- Use ### for headings when structuring responses
+
+MATH EXAMPLES:
+✅ CORRECT: The formula is $$\\frac{12}{4} = 3$$
+❌ WRONG: The formula is [\\frac{12}{4} = 3]
+❌ WRONG: The formula is (\\frac{12}{4} = 3)
+
+Always format mathematical calculations using proper markdown math syntax with $$ delimiters.`,
           api_key: apiKey,
           model: "gpt-4o-mini"
         })
@@ -109,58 +127,59 @@ function App() {
     </div>
   )
 
+    const MemoizedMarkdown = memo(({ content }: { content: string }) => (
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        skipHtml={true}
+        components={{
+        code({ inline, className, children, ...props }: any) {
+          const match = /language-(\w+)/.exec(className || '')
+          return !inline ? (
+            <pre className="code-block">
+              <code className={className} {...props}>
+                {String(children).replace(/\n$/, '')}
+              </code>
+            </pre>
+          ) : (
+            <code className="inline-code" {...props}>
+              {children}
+            </code>
+          )
+        },
+        ol: ({ children }) => (
+          <ol className="markdown-ordered-list">{children}</ol>
+        ),
+        ul: ({ children }) => (
+          <ul className="markdown-unordered-list">{children}</ul>
+        ),
+        li: ({ children }) => (
+          <li className="markdown-list-item">{children}</li>
+        ),
+        p: ({ children }) => (
+          <p className="markdown-paragraph">{children}</p>
+        ),
+        h1: ({ children }) => (
+          <h1 className="markdown-h1">{children}</h1>
+        ),
+        h2: ({ children }) => (
+          <h2 className="markdown-h2">{children}</h2>
+        ),
+        h3: ({ children }) => (
+          <h3 className="markdown-h3">{children}</h3>
+        ),
+              }}
+      >
+        {content}
+      </ReactMarkdown>
+  ), (prevProps, nextProps) => prevProps.content === nextProps.content);
+
   const renderMessage = (message: Message, index: number) => (
     <div key={index} className={`message-container ${message.role}`}>
       <div className="message-wrapper">
         <div className={`message-bubble ${message.role}`}>
           {message.role === 'assistant' ? (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeKatex]}
-              components={{
-                // Custom styling for code blocks
-                code: ({ inline, className, children, ...props }: any) => {
-                  const match = /language-(\w+)/.exec(className || '')
-                  return !inline ? (
-                    <pre className="code-block">
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    </pre>
-                  ) : (
-                    <code className="inline-code" {...props}>
-                      {children}
-                    </code>
-                  )
-                },
-                // Custom styling for lists
-                ol: ({ children }) => (
-                  <ol className="markdown-ordered-list">{children}</ol>
-                ),
-                ul: ({ children }) => (
-                  <ul className="markdown-unordered-list">{children}</ul>
-                ),
-                li: ({ children }) => (
-                  <li className="markdown-list-item">{children}</li>
-                ),
-                // Custom styling for paragraphs
-                p: ({ children }) => (
-                  <p className="markdown-paragraph">{children}</p>
-                ),
-                // Custom styling for headings
-                h1: ({ children }) => (
-                  <h1 className="markdown-h1">{children}</h1>
-                ),
-                h2: ({ children }) => (
-                  <h2 className="markdown-h2">{children}</h2>
-                ),
-                h3: ({ children }) => (
-                  <h3 className="markdown-h3">{children}</h3>
-                ),
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
+            <MemoizedMarkdown content={message.content} />
           ) : (
             message.content
           )}
