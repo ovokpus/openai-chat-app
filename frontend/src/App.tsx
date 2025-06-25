@@ -1,5 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { PaperAirplaneIcon, KeyIcon } from '@heroicons/react/24/solid'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
 import './App.css'
 
 interface Message {
@@ -108,7 +113,57 @@ function App() {
     <div key={index} className={`message-container ${message.role}`}>
       <div className="message-wrapper">
         <div className={`message-bubble ${message.role}`}>
-          {message.content}
+          {message.role === 'assistant' ? (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeKatex]}
+              components={{
+                // Custom styling for code blocks
+                code: ({ inline, className, children, ...props }: any) => {
+                  const match = /language-(\w+)/.exec(className || '')
+                  return !inline ? (
+                    <pre className="code-block">
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    </pre>
+                  ) : (
+                    <code className="inline-code" {...props}>
+                      {children}
+                    </code>
+                  )
+                },
+                // Custom styling for lists
+                ol: ({ children }) => (
+                  <ol className="markdown-ordered-list">{children}</ol>
+                ),
+                ul: ({ children }) => (
+                  <ul className="markdown-unordered-list">{children}</ul>
+                ),
+                li: ({ children }) => (
+                  <li className="markdown-list-item">{children}</li>
+                ),
+                // Custom styling for paragraphs
+                p: ({ children }) => (
+                  <p className="markdown-paragraph">{children}</p>
+                ),
+                // Custom styling for headings
+                h1: ({ children }) => (
+                  <h1 className="markdown-h1">{children}</h1>
+                ),
+                h2: ({ children }) => (
+                  <h2 className="markdown-h2">{children}</h2>
+                ),
+                h3: ({ children }) => (
+                  <h3 className="markdown-h3">{children}</h3>
+                ),
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          ) : (
+            message.content
+          )}
         </div>
         <div className={`message-label ${message.role}`}>
           {message.role === 'user' ? 'You' : 'Assistant'}
