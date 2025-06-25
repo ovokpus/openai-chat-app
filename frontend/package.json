@@ -11,19 +11,14 @@
     "vercel-build": "npm run build"
   },
   "dependencies": {
-    "@headlessui/react": "1.7.18",
     "@heroicons/react": "2.1.1",
-    "autoprefixer": "10.4.17",
-    "axios": "1.6.7",
     "katex": "0.16.22",
-    "postcss": "8.4.35",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-markdown": "10.1.0",
     "rehype-katex": "7.0.1",
     "remark-gfm": "4.0.1",
-    "remark-math": "6.0.0",
-    "tailwindcss": "3.4.1"
+    "remark-math": "6.0.0"
   },
   "devDependencies": {
     "@types/node": "20.11.19",

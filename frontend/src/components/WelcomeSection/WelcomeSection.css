@@ -1,0 +1,43 @@
+.welcome-section {
+  text-align: center;
+  color: #4b5563;
+  padding: 2rem;
+}
+
+.welcome-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #1f2937;
+}
+
+.welcome-text {
+  margin-bottom: 1rem;
+  color: #6b7280;
+}
+
+.enter-key-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #1e3a8a, #1e40af);
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(30, 58, 138, 0.3);
+}
+
+.enter-key-button:hover {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(30, 58, 138, 0.4);
+}
+
+.api-key-icon {
+  width: 1rem;
+  height: 1rem;
+} 
