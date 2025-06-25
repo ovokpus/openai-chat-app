@@ -43,7 +43,7 @@ async def chat(request: ChatRequest):
             stream = client.chat.completions.create(
                 model=request.model,
                 messages=[
-                    {"role": "system", "content": request.developer_message},
+                    {"role": "developer", "content": request.developer_message},
                     {"role": "user", "content": request.user_message}
                 ],
                 stream=True  # Enable streaming response
@@ -71,6 +71,3 @@ if __name__ == "__main__":
     import uvicorn
     # Start the server on all network interfaces (0.0.0.0) on port 8000
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-# Export the FastAPI app for Vercel
-handler = app
