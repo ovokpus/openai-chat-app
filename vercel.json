@@ -1,21 +1,31 @@
 {
-  "buildCommand": "cd frontend && npm run build",
-  "outputDirectory": "frontend/dist",
-  "installCommand": "cd frontend && npm install",
-  "devCommand": "cd frontend && npm run dev -- --port $PORT",
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/app.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "frontend/dist/**",
+      "use": "@vercel/static"
+    }
+  ],
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "api/app.py"
     },
     {
+      "src": "/assets/(.*)",
+      "dest": "frontend/dist/assets/$1"
+    },
+    {
+      "src": "/vite.svg",
+      "dest": "frontend/dist/vite.svg"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "frontend/dist/index.html"
     }
-  ],
-  "functions": {
-    "api/app.py": {
-      "runtime": "@vercel/python@3.12"
-    }
-  }
+  ]
 } 
