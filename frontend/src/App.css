@@ -100,7 +100,6 @@
   display: flex;
   justify-content: center;
   padding: 2rem;
-  padding-bottom: 6rem;
   overflow: hidden;
 }
 
@@ -242,14 +241,10 @@
 
 /* Input Area */
 .input-area {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
   background: white;
   border-top: 1px solid #e5e7eb;
   padding: 1.5rem 2rem;
-  z-index: 100;
+  flex-shrink: 0;
 }
 
 .input-form {

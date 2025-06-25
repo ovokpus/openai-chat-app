@@ -262,40 +262,40 @@ Always format mathematical calculations using proper markdown math syntax with $
             
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Input Area */}
+          <div className="input-area">
+            <form onSubmit={handleSubmit} className="input-form">
+              <div className="input-wrapper">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Type your message..."
+                  className="message-input"
+                  disabled={isLoading || !apiKey}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading || !apiKey || !input.trim()}
+                className="send-button"
+              >
+                <PaperAirplaneIcon className="send-icon" />
+                <span className="hidden-mobile">
+                  {isLoading ? 'Sending...' : 'Send'}
+                </span>
+              </button>
+            </form>
+            
+            {!apiKey && (
+              <p className="help-text">
+                Please enter your OpenAI API key to start chatting
+              </p>
+            )}
+          </div>
         </div>
       </main>
-
-      {/* Input Area - Fixed at bottom */}
-      <div className="input-area">
-        <form onSubmit={handleSubmit} className="input-form">
-          <div className="input-wrapper">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
-              className="message-input"
-              disabled={isLoading || !apiKey}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isLoading || !apiKey || !input.trim()}
-            className="send-button"
-          >
-            <PaperAirplaneIcon className="send-icon" />
-            <span className="hidden-mobile">
-              {isLoading ? 'Sending...' : 'Send'}
-            </span>
-          </button>
-        </form>
-        
-        {!apiKey && (
-          <p className="help-text">
-            Please enter your OpenAI API key to start chatting
-          </p>
-        )}
-      </div>
     </div>
   )
 }
