@@ -18,7 +18,7 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -31,14 +31,21 @@ export default defineConfig({
             'remark-math', 
             'rehype-katex'
           ],
-          // Math rendering chunk
-          'katex-vendor': ['katex'],
-          // Icons chunk
-          'icons-vendor': ['@heroicons/react']
+          // Math rendering chunk - split KaTeX to reduce chunk size
+          'katex-vendor': ['katex']
+        },
+        assetFileNames: (assetInfo) => {
+          if (!assetInfo.name) return `assets/[name]-[hash][extname]`
+          
+          const info = assetInfo.name.split('.')
+          const ext = info[info.length - 1]
+          if (/\.(woff|woff2|eot|ttf|otf)$/.test(assetInfo.name)) {
+            return `fonts/[name]-[hash][extname]`
+          }
+          return `assets/[name]-[hash][extname]`
         }
       }
     },
-    // Increase chunk size warning limit
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 2000
   }
 })
