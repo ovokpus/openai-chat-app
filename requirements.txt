@@ -1,23 +1,21 @@
-# Core FastAPI and web server dependencies
+# Core API dependencies
 fastapi==0.115.12
 uvicorn==0.34.2
 python-multipart==0.0.18
-pydantic==2.11.4
-
-# OpenAI integration
-openai==1.77.0
-
-# Data processing and scientific libraries
-numpy==2.3.1
-pandas>=2.0.0
-
-# Environment and configuration
 python-dotenv==1.1.1
 
-# Document processing dependencies
-pypdf==5.7.0                    # PDF processing
-openpyxl>=3.1.0                 # Excel (.xlsx) processing  
-xlrd>=2.0.1                     # Legacy Excel (.xls) support
-python-pptx>=0.6.21             # PowerPoint processing
-python-docx>=0.8.11             # Word document processing
-cryptography>=3.1               # Required for pypdf encryption support 
+# OpenAI and AI dependencies  
+openai==1.77.0
+numpy==2.3.1
+
+# Document processing (essential for multi-format uploads)
+pypdf==5.7.0
+python-docx==1.2.0
+python-pptx==0.6.23
+openpyxl>=3.1,<4
+xlrd==2.0.2
+
+# Basic utilities
+requests==2.32.4
+pandas==2.3.0
+python-pptx>=1.0.2,<2 
