@@ -3,6 +3,7 @@ import sys
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+import json
 
 # Add parent directory to Python path for aimakerspace imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -30,52 +31,125 @@ class GlobalKnowledgeBaseService:
         }
     
     async def initialize_global_knowledge_base(self):
-        """Initialize the global knowledge base with documents from the documents folder"""
+        """Initialize the global knowledge base from preprocessed JSON file"""
         if self.global_knowledge_base["initialized"]:
             print("📚 Global knowledge base already initialized")
             return
         
         try:
-            print("🚀 Initializing global knowledge base...")
+            print("🚀 Initializing global knowledge base from preprocessed data...")
             
-            # Path to organized knowledge base folder - robust path detection for bundled files
+            # Try to load preprocessed knowledge base JSON file
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            
-            # Try multiple potential paths for better Vercel compatibility with bundled files
-            potential_paths = [
-                os.path.join(current_dir, "knowledge_base", "regulatory_docs"),  # Local development
-                os.path.join(os.path.dirname(current_dir), "services", "knowledge_base", "regulatory_docs"),  # Vercel relative
-                os.path.join("/var/task", "api", "services", "knowledge_base", "regulatory_docs"),  # Vercel absolute
-                os.path.join(os.getcwd(), "api", "services", "knowledge_base", "regulatory_docs"),  # Working directory
-                os.path.join("/tmp", "knowledge_base", "regulatory_docs"),  # Vercel temp location
+            preprocessed_file_paths = [
+                os.path.join(current_dir, "preprocessed_knowledge_base.json"),  # Same directory
+                os.path.join(os.path.dirname(current_dir), "services", "preprocessed_knowledge_base.json"),  # Vercel
+                os.path.join("/var/task", "api", "services", "preprocessed_knowledge_base.json"),  # Vercel absolute
+                os.path.join(os.getcwd(), "api", "services", "preprocessed_knowledge_base.json"),  # Working dir
             ]
             
-            knowledge_base_path = None
-            for path in potential_paths:
-                print(f"🔍 Checking path: {path}")
-                if os.path.exists(path):
-                    knowledge_base_path = path
-                    print(f"✅ Found knowledge base at: {knowledge_base_path}")
-                    break
+            preprocessed_data = None
+            for file_path in preprocessed_file_paths:
+                print(f"🔍 Checking for preprocessed file: {file_path}")
+                if os.path.exists(file_path):
+                    print(f"✅ Found preprocessed knowledge base at: {file_path}")
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            preprocessed_data = json.load(f)
+                        break
+                    except Exception as e:
+                        print(f"❌ Failed to load preprocessed file {file_path}: {e}")
+                        continue
             
-            if not knowledge_base_path:
-                print(f"📂 Knowledge base folder not found in any expected location:")
-                for path in potential_paths:
-                    print(f"   - {path}: {'EXISTS' if os.path.exists(path) else 'NOT FOUND'}")
-                print(f"   - Current working directory: {os.getcwd()}")
-                print(f"   - Current file directory: {current_dir}")
-                print("🏗️ Initializing empty global knowledge base (user uploads only)")
-                self.global_knowledge_base["initialized"] = True
-                self.global_knowledge_base["error"] = None  # Not an error, just no pre-loaded docs
+            if not preprocessed_data:
+                print("📂 No preprocessed knowledge base found, falling back to document processing...")
+                # Fall back to processing documents from the original folders
+                await self._fallback_to_document_processing()
                 return
             
-            # Process documents if knowledge base folder exists
-            await self._process_knowledge_base_documents(knowledge_base_path)
+            # Load from preprocessed data
+            await self._load_from_preprocessed_data(preprocessed_data)
             
         except Exception as e:
             print(f"❌ Failed to initialize global knowledge base: {e}")
             print("🏗️ Falling back to user-upload-only mode")
             self.global_knowledge_base["error"] = None  # Don't mark as error
+            self.global_knowledge_base["initialized"] = True
+    
+    async def _load_from_preprocessed_data(self, preprocessed_data: Dict[str, Any]):
+        """Load knowledge base from preprocessed JSON data"""
+        try:
+            metadata = preprocessed_data.get("metadata", {})
+            chunks = preprocessed_data.get("chunks", [])
+            
+            print(f"📊 Loading preprocessed knowledge base:")
+            print(f"  📅 Created: {metadata.get('created_at', 'unknown')}")
+            print(f"  📄 Documents: {metadata.get('total_documents', 0)}")
+            print(f"  📝 Chunks: {metadata.get('total_chunks', len(chunks))}")
+            print(f"  📋 Version: {metadata.get('version', 'unknown')}")
+            
+            # Process chunks into our format
+            all_chunks = []
+            document_names = set()
+            
+            for chunk_data in chunks:
+                # Convert to our internal format
+                chunk_obj = {
+                    "text": chunk_data["text"],
+                    "metadata": chunk_data["metadata"]
+                }
+                all_chunks.append(chunk_obj)
+                document_names.add(chunk_data["metadata"]["filename"])
+            
+            # Store the processed data
+            self.global_knowledge_base["chunked_documents"] = all_chunks
+            self.global_knowledge_base["documents"] = list(document_names)
+            self.global_knowledge_base["initialized"] = True
+            
+            print(f"✅ Loaded {len(all_chunks)} chunks from {len(document_names)} documents")
+            
+            # Log the document breakdown
+            if "processed_files" in metadata:
+                print(f"📋 Document breakdown:")
+                by_subfolder = {}
+                for file_info in metadata["processed_files"]:
+                    subfolder = file_info["subfolder"]
+                    if subfolder not in by_subfolder:
+                        by_subfolder[subfolder] = []
+                    by_subfolder[subfolder].append(file_info)
+                
+                for subfolder, files in by_subfolder.items():
+                    total_chunks = sum(f["chunk_count"] for f in files)
+                    print(f"  📁 {subfolder}: {len(files)} files, {total_chunks} chunks")
+            
+        except Exception as e:
+            print(f"❌ Error loading preprocessed data: {e}")
+            raise
+    
+    async def _fallback_to_document_processing(self):
+        """Fallback to processing documents from original folders (for local development)"""
+        print("🔄 Falling back to document processing...")
+        
+        # Original document processing logic
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        potential_paths = [
+            os.path.join(current_dir, "knowledge_base", "regulatory_docs"),  # Local development
+            os.path.join(os.path.dirname(current_dir), "services", "knowledge_base", "regulatory_docs"),  # Vercel relative
+            os.path.join("/var/task", "api", "services", "knowledge_base", "regulatory_docs"),  # Vercel absolute
+            os.path.join(os.getcwd(), "api", "services", "knowledge_base", "regulatory_docs"),  # Working directory
+        ]
+        
+        knowledge_base_path = None
+        for path in potential_paths:
+            if os.path.exists(path):
+                knowledge_base_path = path
+                break
+        
+        if knowledge_base_path:
+            await self._process_knowledge_base_documents(knowledge_base_path)
+        else:
+            print("🏗️ No knowledge base documents found, initializing empty KB")
             self.global_knowledge_base["initialized"] = True
     
     async def _process_knowledge_base_documents(self, knowledge_base_path: str):
