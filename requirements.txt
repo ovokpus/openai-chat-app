@@ -19,5 +19,5 @@ requests==2.32.4
 pandas==2.3.0
 python-pptx>=1.0.2,<2
 
-# Local packages
-./aimakerspace
+# Local packages - install in editable mode
+-e aimakerspace/
