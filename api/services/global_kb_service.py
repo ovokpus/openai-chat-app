@@ -4,13 +4,13 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
-# Import aimakerspace modules using relative paths
-from ...aimakerspace.multi_document_processor import MultiDocumentProcessor
-from ...aimakerspace.vectordatabase import VectorDatabase
-from ...aimakerspace.openai_utils.embedding import EmbeddingModel
-from ...aimakerspace.openai_utils.chatmodel import ChatOpenAI
-from ...aimakerspace.rag_pipeline import RAGPipeline
-from ...aimakerspace.regulatory_rag_enhancer import RegulatoryRAGEnhancer
+# Import aimakerspace modules using absolute paths
+from aimakerspace.multi_document_processor import MultiDocumentProcessor
+from aimakerspace.vectordatabase import VectorDatabase
+from aimakerspace.openai_utils.embedding import EmbeddingModel
+from aimakerspace.openai_utils.chatmodel import ChatOpenAI
+from aimakerspace.rag_pipeline import RAGPipeline
+from aimakerspace.regulatory_rag_enhancer import RegulatoryRAGEnhancer
 
 # Import our knowledge base data
 from .knowledge_base_data import get_knowledge_base

@@ -5,13 +5,17 @@
   "functions": {
     "api/**": {
       "excludeFiles": "{etl/**,tests/**,frontend/**,.venv/**,node_modules/**,.git/**,.vercel/**}",
-      "includeFiles": "{api/services/knowledge_base_data.py,api/services/preprocessed_knowledge_base.py,aimakerspace/**/*.py}"
+      "includeFiles": "{api/services/knowledge_base_data.py,api/services/preprocessed_knowledge_base.py}"
     }
   },
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api/$1"
+    },
+    {
+      "source": "/aimakerspace/(.*)",
+      "destination": "/aimakerspace/$1"
     },
     {
       "source": "/(.*)",
