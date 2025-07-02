@@ -4,6 +4,9 @@ uvicorn==0.34.2
 python-multipart==0.0.18
 python-dotenv==1.1.1
 
+# Local package
+../aimakerspace/dist/aimakerspace-0.1.0-py3-none-any.whl
+
 # OpenAI and AI dependencies  
 openai==1.77.0
 numpy==2.3.1

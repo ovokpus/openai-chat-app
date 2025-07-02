@@ -5,7 +5,7 @@
   "functions": {
     "api/**": {
       "excludeFiles": "{etl/**,tests/**,frontend/**,.venv/**,node_modules/**,.git/**,.vercel/**}",
-      "includeFiles": "{api/services/knowledge_base_data.py,api/services/preprocessed_knowledge_base.py}"
+      "includeFiles": "{api/services/knowledge_base_data.py,api/services/preprocessed_knowledge_base.py,aimakerspace/dist/aimakerspace-0.1.0-py3-none-any.whl}"
     }
   },
   "rewrites": [
