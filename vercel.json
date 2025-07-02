@@ -15,6 +15,10 @@
       "config": {
         "distDir": "dist"
       }
+    },
+    {
+      "src": "documents/**/*",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -23,20 +27,24 @@
       "dest": "/api/app.py"
     },
     {
+      "src": "/documents/(.*)",
+      "dest": "/documents/$1"
+    },
+    {
       "src": "/assets/(.*)",
-      "dest": "/frontend/dist/assets/$1"
+      "dest": "/assets/$1"
     },
     {
       "src": "/fonts/(.*)",
-      "dest": "/frontend/dist/fonts/$1"
+      "dest": "/fonts/$1"
     },
     {
       "src": "/vite.svg",
-      "dest": "/frontend/dist/vite.svg"
+      "dest": "/vite.svg"
     },
     {
       "src": "/(.*)",
-      "dest": "/frontend/dist/index.html"
+      "dest": "/index.html"
     }
   ],
   "functions": {
@@ -44,4 +52,4 @@
       "maxDuration": 30
     }
   }
-} 
+}

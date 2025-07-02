@@ -38,8 +38,13 @@ class GlobalKnowledgeBaseService:
         try:
             print("🚀 Initializing global knowledge base with regulatory documents...")
             
-            # Path to documents folder
-            documents_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "documents")
+            # Path to documents folder - handle both local and Vercel deployment
+            if os.getenv('VERCEL'):
+                # In Vercel, documents are at the root level
+                documents_path = os.path.join("/var/task", "documents")
+            else:
+                # Local development path
+                documents_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "documents")
             
             if not os.path.exists(documents_path):
                 print(f"📂 Documents folder not found at {documents_path}")

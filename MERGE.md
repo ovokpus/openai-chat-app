@@ -205,3 +205,150 @@ After merge, verify:
 ---
 
 **🎉 SUMMARY**: This merge delivers a complete regulatory reporting copilot with specialized document processing, enhanced UI, significant code cleanup (55KB+ reduction), and improved performance. The system is now optimized, cleaner, and ready for production regulatory use cases.
+
+# 🚀 Merge Instructions: Vercel Deployment Fixes
+
+## 📋 **Summary of Changes**
+
+This branch (`fix/vercel-deployment-issues`) contains critical fixes for Vercel deployment issues where the application worked locally but failed in production.
+
+### 🎯 **Key Issues Resolved:**
+- ✅ Static file serving configuration 
+- ✅ Python runtime specification
+- ✅ Asset path routing for fonts and JavaScript/CSS
+- ✅ SPA routing for React Router
+- ✅ Build optimization for serverless limits
+
+### 📁 **Files Modified:**
+- `vercel.json` - Fixed routing and build configuration
+- `runtime.txt` - Added Python 3.11 specification
+- `api/vercel.json` - API-specific runtime config
+- `frontend/vite.config.ts` - Optimized build for deployment
+- `DEPLOYMENT_TROUBLESHOOTING.md` - Comprehensive debugging guide
+
+## 🔧 **Critical Changes Explained**
+
+### 1. **Fixed Static File Routing**
+```json
+// Before: Files couldn't be found
+"dest": "/frontend/dist/$1"
+
+// After: Specific routes for each asset type
+"src": "/assets/(.*)", "dest": "/frontend/dist/assets/$1"
+"src": "/fonts/(.*)", "dest": "/frontend/dist/fonts/$1"
+```
+
+### 2. **Optimized Font Loading**
+- Moved KaTeX fonts to separate `/fonts/` directory
+- Reduced chunk sizes for serverless limits
+- Better caching strategy for font assets
+
+### 3. **Python Runtime Specification** 
+- Added `runtime.txt` with Python 3.11.12
+- Configured Vercel Python runtime in config
+
+## 🎉 **Merge Options**
+
+### Option A: GitHub Pull Request (Recommended)
+```bash
+# 1. Push the current branch
+git push origin fix/vercel-deployment-issues
+
+# 2. Create PR via GitHub web interface:
+# - Go to: https://github.com/your-username/openai-chat-app
+# - Click "Compare & pull request"
+# - Title: "Fix Vercel deployment issues - Static file serving"
+# - Add description from this summary
+# - Request review if needed
+# - Merge when ready
+
+# 3. After merge, clean up:
+git checkout main
+git pull origin main
+git branch -d fix/vercel-deployment-issues
+```
+
+### Option B: Direct Merge via GitHub CLI
+```bash
+# 1. Push the branch
+git push origin fix/vercel-deployment-issues
+
+# 2. Create and merge PR via CLI
+gh pr create --title "Fix Vercel deployment issues" \
+  --body "Critical fixes for static file serving and Python runtime configuration. 
+  
+  Resolves:
+  - Static asset routing issues
+  - Font loading problems  
+  - SPA routing for React
+  - Python 3.11 runtime specification
+  
+  Testing: Frontend builds successfully, all assets served correctly."
+
+# 3. Merge the PR
+gh pr merge --squash --delete-branch
+
+# 4. Switch back to main
+git checkout main
+git pull origin main
+```
+
+### Option C: Direct Merge (Use with caution)
+```bash
+# Only if you're sure and have tested thoroughly
+git checkout main
+git merge fix/vercel-deployment-issues
+git push origin main
+git branch -d fix/vercel-deployment-issues
+```
+
+## 🧪 **Pre-Merge Testing Checklist**
+
+Before merging, verify these work:
+
+### Local Testing:
+- [ ] `cd frontend && npm run build` - succeeds without errors
+- [ ] Generated files in correct directories (`frontend/dist/assets/`, `frontend/dist/fonts/`)
+- [ ] API starts without import errors (`cd api && python app.py`)
+
+### Vercel Testing (After Merge):
+- [ ] Build logs show successful frontend build
+- [ ] API function deploys without Python errors
+- [ ] Static assets load (check browser network tab)
+- [ ] Math rendering works (KaTeX fonts load)
+- [ ] API endpoints respond correctly
+
+## 🚨 **Rollback Plan**
+
+If deployment still fails after merge:
+
+```bash
+# Quick rollback to previous working state
+git revert HEAD~1
+git push origin main
+
+# Or revert specific files
+git checkout HEAD~1 -- vercel.json
+git checkout HEAD~1 -- frontend/vite.config.ts
+git commit -m "Rollback deployment changes"
+git push origin main
+```
+
+## 📞 **Post-Merge Actions**
+
+1. **Deploy to Vercel**: Changes should auto-deploy, or trigger manual deployment
+2. **Test Production**: Verify all functionality works in production
+3. **Update Environment Variables**: Ensure `OPENAI_API_KEY` is set in Vercel dashboard
+4. **Monitor**: Check Vercel function logs for any runtime errors
+
+## 🎯 **What Should Work After Merge**
+
+- ✅ Vercel deployment succeeds 
+- ✅ Frontend loads without 404 errors
+- ✅ Math formulas render correctly (KaTeX fonts)
+- ✅ API endpoints accessible
+- ✅ File uploads work
+- ✅ Chat functionality operational
+- ✅ No console errors for missing assets
+
+**Ready to merge! 🚀**
