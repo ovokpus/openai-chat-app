@@ -12,6 +12,7 @@ import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import sys
+import numpy as np
 
 # Add the project root to the Python path for aimakerspace imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -73,16 +74,36 @@ class SessionInfo(BaseModel):
     created_at: str
 
 # Helper function to get or create user session
-def get_or_create_session(session_id: Optional[str] = None) -> str:
+def get_or_create_session(session_id: Optional[str] = None, api_key: Optional[str] = None) -> str:
     if session_id and session_id in user_sessions:
+        session = user_sessions[session_id]
+        # Ensure the vector database has a properly initialized embedding model
+        if api_key and (not hasattr(session["vector_db"], "embedding_model") or 
+                       not hasattr(session["vector_db"].embedding_model, "openai_api_key") or
+                       session["vector_db"].embedding_model.openai_api_key != api_key):
+            print(f"🔧 Updating session {session_id} with new API key")
+            # Create a new embedding model with the current API key
+            embedding_model = EmbeddingModel(api_key=api_key)
+            session["vector_db"].embedding_model = embedding_model
+            session["api_key"] = api_key
         return session_id
     
     new_session_id = str(uuid.uuid4())
+    
+    # Always create VectorDatabase with embedding model that has API key
+    if api_key:
+        embedding_model = EmbeddingModel(api_key=api_key)
+        vector_db = VectorDatabase(embedding_model=embedding_model)
+    else:
+        # Create a vector database without embedding model - will need to be initialized later
+        vector_db = VectorDatabase()
+    
     user_sessions[new_session_id] = {
-        "vector_db": VectorDatabase(),
+        "vector_db": vector_db,
         "documents": [],
         "created_at": datetime.now().isoformat(),
-        "rag_pipeline": None
+        "rag_pipeline": None,
+        "api_key": api_key  # Store the API key in session
     }
     return new_session_id
 
@@ -125,13 +146,19 @@ async def upload_pdf(
     api_key: str = Form(...)
 ):
     try:
+        print(f"📁 Starting PDF upload: {file.filename}")
+        
         # Validate file type
         if not file.filename.lower().endswith('.pdf'):
+            print(f"❌ Invalid file type: {file.filename}")
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
         
-        # Get or create session
-        session_id = get_or_create_session(session_id)
+        print(f"✅ File validation passed")
+        
+        # Get or create session with API key
+        session_id = get_or_create_session(session_id, api_key)
         session = user_sessions[session_id]
+        print(f"✅ Session created/retrieved: {session_id}")
         
         # Save uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
@@ -139,45 +166,75 @@ async def upload_pdf(
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
         
+        print(f"✅ File saved temporarily: {tmp_file_path}")
+        
         try:
             # Process PDF using aimakerspace
+            print(f"📄 Loading PDF documents...")
             pdf_loader = PDFFileLoader(tmp_file_path)
             documents = pdf_loader.load_documents()
             
             if not documents:
+                print(f"❌ No text extracted from PDF")
                 raise HTTPException(status_code=400, detail="No text could be extracted from the PDF")
             
+            print(f"✅ Extracted {len(documents)} documents")
+            
             # Split text into chunks
+            print(f"✂️ Splitting text into chunks...")
             text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
             chunks = text_splitter.split_texts(documents)
             
-            # Generate embeddings and store in vector database
-            # Set environment variable for the session
-            os.environ["OPENAI_API_KEY"] = api_key
-            embedding_model = EmbeddingModel()
+            print(f"✅ Created {len(chunks)} chunks")
             
-            # Process chunks and add to vector database
+            # Ensure vector database has proper embedding model
+            print(f"🧠 Ensuring vector database has proper embedding model...")
             vector_db = session["vector_db"]
             
+            # Make sure the vector database has the embedding model with API key
+            if not hasattr(vector_db, "embedding_model") or not vector_db.embedding_model:
+                embedding_model = EmbeddingModel(api_key=api_key)
+                vector_db.embedding_model = embedding_model
+                print(f"✅ Created new embedding model for vector database")
+            elif not hasattr(vector_db.embedding_model, "openai_api_key") or not vector_db.embedding_model.openai_api_key:
+                embedding_model = EmbeddingModel(api_key=api_key)
+                vector_db.embedding_model = embedding_model
+                print(f"✅ Updated embedding model with API key")
+            else:
+                print(f"✅ Vector database already has proper embedding model")
+            
+            print(f"💾 Processing chunks and storing embeddings...")
+            # Process chunks and add to vector database
             for i, chunk in enumerate(chunks):
-                embedding = embedding_model.get_embedding(chunk)
-                metadata = {
-                    "filename": file.filename,
-                    "chunk_index": i,
-                    "upload_time": datetime.now().isoformat()
-                }
-                vector_db.insert(chunk, embedding, metadata)
+                print(f"🔄 Processing chunk {i+1}/{len(chunks)}")
+                try:
+                    embedding = vector_db.embedding_model.get_embedding(chunk)
+                    metadata = {
+                        "filename": file.filename,
+                        "chunk_index": i,
+                        "upload_time": datetime.now().isoformat()
+                    }
+                    vector_db.insert(chunk, np.array(embedding), metadata)
+                    print(f"✅ Chunk {i+1} processed and stored")
+                except Exception as chunk_error:
+                    print(f"❌ Error processing chunk {i+1}: {chunk_error}")
+                    raise chunk_error
+            
+            print(f"✅ All chunks processed successfully")
             
             # Update session info
             session["documents"].append(file.filename)
             
             # Initialize RAG pipeline for this session
-            chat_model = ChatOpenAI(model_name="gpt-4o-mini")
+            print(f"🤖 Initializing RAG pipeline...")
+            chat_model = ChatOpenAI(model_name="gpt-4o-mini", api_key=api_key)
             session["rag_pipeline"] = RAGPipeline(
                 llm=chat_model,
                 vector_db=vector_db,
                 response_style="detailed"
             )
+            
+            print(f"✅ RAG pipeline initialized")
             
             return UploadResponse(
                 success=True,
@@ -189,39 +246,68 @@ async def upload_pdf(
             
         finally:
             # Clean up temporary file
+            print(f"🧹 Cleaning up temporary file")
             os.unlink(tmp_file_path)
             
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
+        print(f"❌ Unexpected error in upload_pdf: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
 
 # New RAG chat endpoint
 @app.post("/api/rag-chat")
 async def rag_chat(request: RAGChatRequest):
     try:
+        print(f"🔍 RAG chat request received:")
+        print(f"  - Session ID: {request.session_id}")
+        print(f"  - User message: {request.user_message}")
+        print(f"  - Available sessions: {list(user_sessions.keys())}")
+        
         # Check if session exists
         if request.session_id not in user_sessions:
+            print(f"❌ Session {request.session_id} not found in {list(user_sessions.keys())}")
             raise HTTPException(status_code=404, detail="Session not found. Please upload a PDF first.")
         
         session = user_sessions[request.session_id]
+        print(f"✅ Found session with {len(session['documents'])} documents")
         
         # Check if session has documents
         if not session["documents"]:
+            print(f"❌ No documents in session")
             raise HTTPException(status_code=400, detail="No documents found in session. Please upload a PDF first.")
         
-        # Set environment variable for OpenAI API
-        os.environ["OPENAI_API_KEY"] = request.api_key
+        # API key is already passed directly to models during initialization
         
         # Get RAG pipeline from session
         rag_pipeline = session["rag_pipeline"]
         
         if not rag_pipeline:
+            print(f"❌ RAG pipeline not initialized")
             raise HTTPException(status_code=500, detail="RAG pipeline not initialized")
+        
+        # Ensure the vector database has a proper embedding model
+        vector_db = session["vector_db"]
+        if not hasattr(vector_db, "embedding_model") or not vector_db.embedding_model:
+            print(f"🔧 Initializing embedding model for RAG search...")
+            embedding_model = EmbeddingModel(api_key=request.api_key)
+            vector_db.embedding_model = embedding_model
+        elif not hasattr(vector_db.embedding_model, "openai_api_key") or not vector_db.embedding_model.openai_api_key:
+            print(f"🔧 Updating embedding model with API key for RAG search...")
+            embedding_model = EmbeddingModel(api_key=request.api_key)
+            vector_db.embedding_model = embedding_model
+        
+        print(f"✅ RAG pipeline ready")
         
         # Create streaming response
         async def generate():
             try:
                 # Run RAG pipeline to get context and generate response
                 if request.use_rag:
+                    print(f"🔎 Searching documents for: {request.user_message}")
                     # Search for relevant documents
                     search_results = rag_pipeline.search_documents(
                         query=request.user_message,
@@ -229,9 +315,14 @@ async def rag_chat(request: RAGChatRequest):
                         return_metadata=True
                     )
                     
+                    print(f"📋 Found {len(search_results)} search results")
+                    
                     if search_results:
                         # Format context from search results
                         context, metadata_info = rag_pipeline.format_context(search_results)
+                        
+                        print(f"📝 Generated context length: {len(context)} characters")
+                        print(f"🔗 Metadata: {metadata_info}")
                         
                         # Generate response using RAG
                         response = rag_pipeline.generate_response(
@@ -240,9 +331,12 @@ async def rag_chat(request: RAGChatRequest):
                             metadata_info=metadata_info
                         )
                         
+                        print(f"💬 Generated response length: {len(response)} characters")
+                        
                         # Stream the response
                         yield response
                     else:
+                        print(f"❌ No relevant search results found")
                         yield "I couldn't find relevant information in the uploaded documents to answer your question."
                 else:
                     # Fallback to regular chat without RAG
@@ -261,14 +355,36 @@ async def rag_chat(request: RAGChatRequest):
                             yield chunk.choices[0].delta.content
                             
             except Exception as e:
+                print(f"❌ Error in generate function: {e}")
+                import traceback
+                traceback.print_exc()
                 yield f"Error generating response: {str(e)}"
         
         return StreamingResponse(generate(), media_type="text/plain")
         
     except Exception as e:
+        print(f"❌ Error in rag_chat: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 # Session management endpoints
+@app.get("/api/sessions")
+async def list_sessions():
+    """Debug endpoint to list all active sessions"""
+    sessions_info = []
+    for session_id, session_data in user_sessions.items():
+        sessions_info.append({
+            "session_id": session_id,
+            "document_count": len(session_data["documents"]),
+            "documents": session_data["documents"],
+            "created_at": session_data["created_at"]
+        })
+    return {
+        "total_sessions": len(user_sessions),
+        "sessions": sessions_info
+    }
+
 @app.get("/api/session/{session_id}", response_model=SessionInfo)
 async def get_session_info(session_id: str):
     if session_id not in user_sessions:

@@ -58,18 +58,33 @@ Context format: Each piece of context will be marked with [Source: filename] fol
             List of search results with content and metadata
         """
         try:
+            print(f"🔍 RAG DEBUG: Searching for query: {query}")
+            
+            # Get query embedding
+            query_vector = self.vector_db.embedding_model.get_embedding(query)
+            print(f"🔍 RAG DEBUG: Generated query embedding, shape: {len(query_vector)}")
+            
             # Use the vector database's search method
-            results = self.vector_db.search(query, k=k)
+            search_results = self.vector_db.search(query_vector, k=k)
+            print(f"🔍 RAG DEBUG: Raw search results count: {len(search_results)}")
             
             formatted_results = []
-            for result in results:
+            for i, (key, score) in enumerate(search_results):
+                print(f"🔍 RAG DEBUG: Result {i+1}:")
+                print(f"  - Score: {score}")
+                print(f"  - Key type: {type(key)}")
+                print(f"  - Key preview: {str(key)[:200]}...")
+                
                 formatted_result = {
-                    "content": result.get("text", ""),
-                    "score": result.get("score", 0.0)
+                    "text": key,  # The key is the text content
+                    "score": score
                 }
                 
-                if return_metadata and "metadata" in result:
-                    formatted_result["metadata"] = result["metadata"]
+                if return_metadata:
+                    metadata = self.vector_db.get_metadata(key)
+                    if metadata:
+                        formatted_result["metadata"] = metadata
+                        print(f"  - Metadata: {metadata}")
                 
                 formatted_results.append(formatted_result)
             
@@ -92,6 +107,8 @@ Context format: Each piece of context will be marked with [Source: filename] fol
         Returns:
             Tuple of (formatted_context, metadata_info)
         """
+        print(f"📝 RAG DEBUG: Formatting context from {len(search_results)} results")
+        
         if not search_results:
             return "", ""
         
@@ -99,9 +116,14 @@ Context format: Each piece of context will be marked with [Source: filename] fol
         metadata_parts = []
         
         for i, result in enumerate(search_results):
-            content = result.get("content", "").strip()
+            content = result.get("text", "").strip()
             metadata = result.get("metadata", {})
             score = result.get("score", 0.0)
+            
+            print(f"📝 RAG DEBUG: Processing result {i+1}:")
+            print(f"  - Content type: {type(content)}")
+            print(f"  - Content length: {len(content)}")
+            print(f"  - Content preview: {content[:100]}...")
             
             if content:
                 # Format with source information
@@ -116,6 +138,9 @@ Context format: Each piece of context will be marked with [Source: filename] fol
         
         formatted_context = "\n\n---\n\n".join(context_parts)
         metadata_info = " | ".join(metadata_parts)
+        
+        print(f"📝 RAG DEBUG: Final context length: {len(formatted_context)}")
+        print(f"📝 RAG DEBUG: Final context preview: {formatted_context[:300]}...")
         
         return formatted_context, metadata_info
 

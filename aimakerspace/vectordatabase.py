@@ -1,6 +1,6 @@
 import numpy as np # type: ignore
 from collections import defaultdict
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Callable, Dict, Any, Optional
 from aimakerspace.openai_utils.embedding import EmbeddingModel
 import asyncio
 
@@ -16,10 +16,15 @@ def cosine_similarity(vector_a: np.array, vector_b: np.array) -> float:
 class VectorDatabase:
     def __init__(self, embedding_model: EmbeddingModel = None):
         self.vectors = defaultdict(np.array)
-        self.embedding_model = embedding_model or EmbeddingModel()
+        self.metadata = defaultdict(dict)  # Store metadata separately
+        # Don't create a default embedding model if none provided - it will fail without API key
+        self.embedding_model = embedding_model
 
-    def insert(self, key: str, vector: np.array) -> None:
+    def insert(self, key: str, vector: np.array, metadata: Optional[Dict[str, Any]] = None) -> None:
+        """Insert a vector with optional metadata."""
         self.vectors[key] = vector
+        if metadata:
+            self.metadata[key] = metadata
 
     def search(
         self,
@@ -40,12 +45,19 @@ class VectorDatabase:
         distance_measure: Callable = cosine_similarity,
         return_as_text: bool = False,
     ) -> List[Tuple[str, float]]:
+        if not self.embedding_model:
+            raise ValueError("Embedding model not initialized. Please provide an embedding model with a valid API key.")
+        
         query_vector = self.embedding_model.get_embedding(query_text)
         results = self.search(query_vector, k, distance_measure)
         return [result[0] for result in results] if return_as_text else results
 
     def retrieve_from_key(self, key: str) -> np.array:
         return self.vectors.get(key, None)
+
+    def get_metadata(self, key: str) -> Dict[str, Any]:
+        """Get metadata for a specific key."""
+        return self.metadata.get(key, {})
 
     async def abuild_from_list(self, list_of_text: List[str]) -> "VectorDatabase":
         embeddings = await self.embedding_model.async_get_embeddings(list_of_text)

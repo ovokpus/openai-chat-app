@@ -77,22 +77,28 @@ export const uploadPDF = async (
 export const sendRAGMessage = async (
   request: RAGChatRequest
 ): Promise<ReadableStreamDefaultReader<Uint8Array> | null> => {
+  const requestBody = {
+    user_message: request.userMessage,
+    session_id: request.sessionId,
+    api_key: request.apiKey,
+    model: request.model || "gpt-4o-mini",
+    use_rag: request.useRag !== false
+  }
+  
+  console.log('Sending RAG request:', requestBody) // Debug log
+  
   const response = await fetch('/api/rag-chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      user_message: request.userMessage,
-      session_id: request.sessionId,
-      api_key: request.apiKey,
-      model: request.model || "gpt-4o-mini",
-      use_rag: request.useRag !== false
-    })
+    body: JSON.stringify(requestBody)
   })
 
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`)
+    const errorText = await response.text()
+    console.error('RAG request failed:', response.status, errorText) // Debug log
+    throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
   }
 
   return response.body?.getReader() || null

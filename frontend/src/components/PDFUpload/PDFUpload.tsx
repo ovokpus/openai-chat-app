@@ -38,8 +38,10 @@ export const PDFUpload: React.FC<PDFUploadProps> = ({
     
     try {
       const response = await uploadPDF(file, apiKey, sessionId)
+      console.log('PDFUpload: Upload successful', response) // Debug log
       onUploadSuccess(response)
     } catch (error) {
+      console.error('PDFUpload: Upload failed', error) // Debug log
       onUploadError(error instanceof Error ? error.message : 'Upload failed')
     } finally {
       setIsUploading(false)

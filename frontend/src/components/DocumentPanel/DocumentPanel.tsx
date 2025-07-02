@@ -1,5 +1,5 @@
 import React from 'react'
-import { DocumentIcon, TrashIcon, SparklesIcon } from '@heroicons/react/24/outline'
+import { DocumentIcon, TrashIcon, SparklesIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import type { SessionInfo } from '../../types'
 import './DocumentPanel.css'
 
@@ -30,6 +30,10 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
     return new Date(dateString).toLocaleString()
   }
 
+  // Check if session might be stale (created more than 1 hour ago)
+  const sessionAge = Date.now() - new Date(sessionInfo.created_at).getTime()
+  const isStaleSession = sessionAge > 60 * 60 * 1000 // 1 hour
+
   return (
     <div className="document-panel">
       <div className="document-panel-header">
@@ -51,6 +55,16 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
           <TrashIcon className="clear-icon" />
         </button>
       </div>
+
+      {isStaleSession && (
+        <div className="session-warning">
+          <ExclamationTriangleIcon className="warning-icon" />
+          <div className="warning-content">
+            <p className="warning-text">Session may have expired</p>
+            <p className="warning-hint">If RAG chat isn't working, try uploading your PDF again</p>
+          </div>
+        </div>
+      )}
 
       <div className="documents-list">
         {sessionInfo.documents.map((document, index) => (
