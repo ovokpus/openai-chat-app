@@ -5,10 +5,22 @@
 node_modules/
 .env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .venv/
 venv/
 __pycache__/
 *.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
 
 # Build artifacts that will be rebuilt
 frontend/dist/
@@ -19,9 +31,15 @@ frontend/node_modules/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
 # Git
@@ -34,4 +52,15 @@ logs/
 
 # Temporary files
 tmp/
-temp/ 
+temp/
+
+# ETL directory - contains large source documents, only preprocessed JSON needed for deployment
+etl/
+
+# Test directories
+tests/
+
+# Documentation
+*.md
+!README.md 
+documents/
