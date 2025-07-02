@@ -20,20 +20,18 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="header-container">
         <div className="header-left">
           <h1 className="header-title">OpenAI Chat</h1>
-          {hasActiveSession && (
-            <div className="rag-toggle">
-              <button
-                onClick={onToggleRagMode}
-                className={`rag-toggle-button ${ragMode ? 'active' : ''}`}
-                title={ragMode ? 'Disable RAG mode' : 'Enable RAG mode'}
-              >
-                <SparklesIcon className="rag-toggle-icon" />
-                {ragMode ? 'RAG ON' : 'RAG OFF'}
-              </button>
-            </div>
-          )}
         </div>
-        <div>
+        <div className="header-right">
+          {hasActiveSession && (
+            <button
+              onClick={onToggleRagMode}
+              className={`rag-toggle-button ${ragMode ? 'active' : ''}`}
+              title={ragMode ? 'Disable RAG mode' : 'Enable RAG mode'}
+            >
+              <SparklesIcon className="rag-toggle-icon" />
+              {ragMode ? 'RAG ON' : 'RAG OFF'}
+            </button>
+          )}
           <button
             onClick={onToggleApiKey}
             className="api-key-button"
