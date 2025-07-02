@@ -177,7 +177,7 @@ class GlobalKnowledgeBaseService:
             print(f"❌ Failed to create global knowledge base instance: {e}")
             return None
     
-    async def add_document_to_global_kb(self, processed_docs: List, filename: str, api_key: str) -> bool:
+    async def add_document_to_global_kb(self, processed_docs: List, filename: str, api_key: str, temp_file_path: str = None) -> bool:
         """Add a user-uploaded document to the global knowledge base"""
         if not self.global_knowledge_base["initialized"]:
             print(f"❌ Global knowledge base not initialized")
@@ -185,6 +185,25 @@ class GlobalKnowledgeBaseService:
         
         try:
             print(f"🌍 Adding {filename} to global knowledge base with {len(processed_docs)} chunks...")
+            
+            # Save uploaded file to organized uploaded_docs folder for persistence
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    uploaded_docs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "knowledge_base", "uploaded_docs")
+                    os.makedirs(uploaded_docs_path, exist_ok=True)
+                    
+                    # Create unique filename with timestamp to avoid conflicts
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    file_ext = os.path.splitext(filename)[1]
+                    base_name = os.path.splitext(filename)[0]
+                    unique_filename = f"{timestamp}_{base_name}{file_ext}"
+                    
+                    persistent_file_path = os.path.join(uploaded_docs_path, unique_filename)
+                    import shutil
+                    shutil.copy2(temp_file_path, persistent_file_path)
+                    print(f"💾 Saved uploaded file to: uploaded_docs/{unique_filename}")
+                except Exception as e:
+                    print(f"⚠️ Could not save uploaded file to disk: {e} (continuing with in-memory storage)")
             
             # Get or create global knowledge base with API key
             global_kb = await self.get_global_knowledge_base(api_key)

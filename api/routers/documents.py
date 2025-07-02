@@ -50,11 +50,12 @@ async def upload_document_to_knowledge_base(
             if not processed_docs:
                 raise HTTPException(status_code=400, detail="Could not process the uploaded document")
             
-            # Add document to global knowledge base
+            # Add document to global knowledge base (with file persistence)
             success = await global_kb_service.add_document_to_global_kb(
                 processed_docs=processed_docs,
                 filename=file.filename,
-                api_key=api_key
+                api_key=api_key,
+                temp_file_path=temp_file_path
             )
             
             if not success:
@@ -122,11 +123,12 @@ async def upload_multi_format_document(
             doc_type = processed_docs[0].doc_type if processed_docs else "unknown"
             regulatory_type = processed_docs[0].metadata.get("regulatory_type", "general")
             
-            # Add document to global knowledge base
+            # Add document to global knowledge base (with file persistence)
             success = await global_kb_service.add_document_to_global_kb(
                 processed_docs=processed_docs,
                 filename=file.filename,
-                api_key=api_key
+                api_key=api_key,
+                temp_file_path=temp_file_path
             )
             
             if not success:
