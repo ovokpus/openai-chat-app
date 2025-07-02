@@ -348,7 +348,52 @@ def get_global_knowledge_base(api_key: str):
         chunked_documents = global_knowledge_base.get("chunked_documents", [])
         if chunked_documents:
             print(f"🔧 Initializing vector database with {len(chunked_documents)} chunks for user session...")
-            vector_db.add_documents(chunked_documents)
+            
+            # Extract all text content for batch embedding generation
+            texts = [doc.page_content for doc in chunked_documents]
+            
+            # Define async helper function for embedding generation
+            async def generate_and_insert_embeddings():
+                print(f"🚀 Generating embeddings for {len(texts)} chunks using async batch processing...")
+                
+                # Generate all embeddings in parallel batches
+                embeddings = await embedding_model.async_get_embeddings(texts)
+                
+                print(f"✅ Generated {len(embeddings)} embeddings, inserting into vector database...")
+                
+                # Insert all documents with their embeddings
+                upload_time = datetime.now().isoformat()
+                for i, (doc, embedding) in enumerate(zip(chunked_documents, embeddings)):
+                    try:
+                        # Create metadata
+                        metadata = doc.metadata.copy() if hasattr(doc, 'metadata') and doc.metadata else {}
+                        metadata.update({
+                            "chunk_index": i,
+                            "source": "global_knowledge_base", 
+                            "upload_time": upload_time
+                        })
+                        
+                        # Insert into vector database
+                        vector_db.insert(doc.page_content, np.array(embedding), metadata)
+                        
+                        if (i + 1) % 100 == 0:  # Progress update every 100 insertions
+                            print(f"🔄 Inserted {i + 1}/{len(chunked_documents)} chunks...")
+                            
+                    except Exception as e:
+                        print(f"❌ Error inserting chunk {i+1}: {e}")
+                        continue
+                
+                print(f"✅ Successfully added {len(chunked_documents)} chunks to vector database")
+                
+            try:
+                # Run the async function using the current event loop
+                import asyncio
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(generate_and_insert_embeddings())
+                
+            except Exception as e:
+                print(f"❌ Error during batch embedding generation: {e}")
+                raise
             
             # Create RAG pipeline
             chat_model = ChatOpenAI(api_key=api_key)
