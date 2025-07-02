@@ -62,5 +62,19 @@ tests/
 
 # Documentation
 *.md
-!README.md 
+!README.md
+
+# Documents directory - original regulatory documents not needed in deployment
 documents/
+
+# Large binary files
+*.pdf
+*.xlsx
+*.xls
+*.pptx
+*.ppt
+*.docx
+*.doc
+
+# Vercel cache
+.vercel/
