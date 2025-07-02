@@ -61,7 +61,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
             <div className="welcome-features">
               <div className="feature-item">
                 <span className="feature-icon">📄</span>
-                <span>Chat with your PDF documents</span>
+                <span>Chat with your documents</span>
               </div>
               <div className="feature-item">
                 <span className="feature-icon">🔍</span>

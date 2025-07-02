@@ -50,11 +50,17 @@ export const sendChatMessage = async (
   return response.body?.getReader() || null
 }
 
-export const uploadPDF = async (
+/**
+ * Uploads a document to the knowledge base (supports multiple file formats)
+ * @deprecated Use uploadDocument instead for better multi-format support
+ */
+export const uploadFile = async (
   file: File,
   apiKey: string,
   sessionId?: string
 ): Promise<UploadResponse> => {
+  logger.warn('uploadFile is deprecated. Use uploadDocument instead for enhanced multi-format support.')
+  
   const formData = new FormData()
   formData.append('file', file)
   formData.append('api_key', apiKey)
@@ -75,35 +81,65 @@ export const uploadPDF = async (
   return response.json()
 }
 
-export const uploadDocument = async (
+/**
+ * Uploads a document to the knowledge base with comprehensive format support
+ * Supports: PDF, Word, Excel, PowerPoint, CSV, SQL, Python, JavaScript, TypeScript, Markdown, and Text files
+ * @param file - The file to upload (max 10MB)
+ * @param apiKey - OpenAI API key for processing
+ * @param sessionId - Optional session ID for document management
+ * @returns Promise with upload response containing document metadata
+ */
+export const uploadDocumentToKnowledgeBase = async (
   file: File,
   apiKey: string,
   sessionId?: string
 ): Promise<MultiDocumentUploadResponse> => {
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('api_key', apiKey)
-  if (sessionId) {
-    formData.append('session_id', sessionId)
-  }
-
-  const response = await fetch('/api/upload-document', {
-    method: 'POST',
-    body: formData
+  logger.debug('Initiating document upload to knowledge base', {
+    fileName: file.name,
+    fileSize: file.size,
+    fileType: file.type,
+    sessionId
   })
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+  const documentFormData = new FormData()
+  documentFormData.append('file', file)
+  documentFormData.append('api_key', apiKey)
+  if (sessionId) {
+    documentFormData.append('session_id', sessionId)
   }
 
-  return response.json()
+  const uploadResponse = await fetch('/api/upload-document', {
+    method: 'POST',
+    body: documentFormData
+  })
+
+  if (!uploadResponse.ok) {
+    const errorDetails = await uploadResponse.json()
+    logger.error('Document upload failed', {
+      status: uploadResponse.status,
+      error: errorDetails
+    })
+    throw new Error(errorDetails.detail || `Document upload failed with status: ${uploadResponse.status}`)
+  }
+
+  const responseData = await uploadResponse.json()
+  logger.info('Document successfully uploaded to knowledge base', responseData)
+  
+  return responseData
 }
 
-export const sendRAGMessage = async (
+// Backward compatibility alias
+export const uploadDocument = uploadDocumentToKnowledgeBase
+
+/**
+ * Sends a message using Retrieval-Augmented Generation (RAG) with uploaded documents
+ * @param request - RAG chat request containing user message and session information
+ * @returns Promise with readable stream for streaming response, or null if no stream available
+ */
+export const sendRAGEnhancedMessage = async (
   request: RAGChatRequest
 ): Promise<ReadableStreamDefaultReader<Uint8Array> | null> => {
-  const requestBody = {
+  const ragRequestBody = {
     user_message: request.userMessage,
     session_id: request.sessionId,
     api_key: request.apiKey,
@@ -111,24 +147,38 @@ export const sendRAGMessage = async (
     use_rag: request.useRag !== false
   }
   
-  logApiRequest('/api/rag-chat', requestBody)
+  logger.debug('Sending RAG-enhanced message request', {
+    sessionId: request.sessionId,
+    model: request.model,
+    useRag: request.useRag,
+    messageLength: request.userMessage.length
+  })
   
-  const response = await fetch('/api/rag-chat', {
+  logApiRequest('/api/rag-chat', ragRequestBody)
+  
+  const ragResponse = await fetch('/api/rag-chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestBody)
+    body: JSON.stringify(ragRequestBody)
   })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    logger.error('RAG request failed:', response.status, errorText)
-    throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
+  if (!ragResponse.ok) {
+    const errorDetails = await ragResponse.text()
+    logger.error('RAG-enhanced message request failed', {
+      status: ragResponse.status,
+      error: errorDetails
+    })
+    throw new Error(`RAG request failed with status: ${ragResponse.status} - ${errorDetails}`)
   }
 
-  return response.body?.getReader() || null
+  logger.info('RAG-enhanced message request successful, starting stream')
+  return ragResponse.body?.getReader() || null
 }
+
+// Backward compatibility alias
+export const sendRAGMessage = sendRAGEnhancedMessage
 
 export const getSessionInfo = async (sessionId: string): Promise<SessionInfo> => {
   const response = await fetch(`/api/session/${sessionId}`)
@@ -161,13 +211,34 @@ export const getGlobalKnowledgeBase = async (): Promise<GlobalKnowledgeBaseInfo>
   return response.json()
 }
 
-export const deleteDocument = async (filename: string, apiKey: string): Promise<void> => {
-  const response = await fetch(`/api/document/${encodeURIComponent(filename)}?api_key=${encodeURIComponent(apiKey)}`, {
-    method: 'DELETE'
-  })
+/**
+ * Removes a document from the global knowledge base
+ * @param filename - Name of the document to remove
+ * @param apiKey - OpenAI API key for authentication
+ * @returns Promise that resolves when document is successfully deleted
+ */
+export const removeDocumentFromKnowledgeBase = async (filename: string, apiKey: string): Promise<void> => {
+  logger.debug('Attempting to remove document from knowledge base', { filename })
   
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+  const deleteResponse = await fetch(
+    `/api/document/${encodeURIComponent(filename)}?api_key=${encodeURIComponent(apiKey)}`, 
+    {
+      method: 'DELETE'
+    }
+  )
+  
+  if (!deleteResponse.ok) {
+    const errorDetails = await deleteResponse.json()
+    logger.error('Failed to remove document from knowledge base', {
+      filename,
+      status: deleteResponse.status,
+      error: errorDetails
+    })
+    throw new Error(errorDetails.detail || `Failed to delete document with status: ${deleteResponse.status}`)
   }
-} 
+
+  logger.info('Document successfully removed from knowledge base', { filename })
+}
+
+// Backward compatibility alias
+export const deleteDocument = removeDocumentFromKnowledgeBase 

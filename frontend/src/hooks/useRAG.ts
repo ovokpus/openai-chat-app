@@ -1,6 +1,14 @@
-import { useState, useEffect } from 'react'
-import { uploadPDF, sendRAGMessage, getSessionInfo, deleteSession } from '../services/chatApi'
-import type { UploadResponse, SessionInfo, RAGChatRequest } from '../types'
+import { useState, useEffect, useCallback } from 'react'
+import { 
+  uploadDocumentToKnowledgeBase, 
+  sendRAGEnhancedMessage, 
+  getSessionInfo, 
+  deleteSession,
+  // Backward compatibility imports
+  uploadDocument,
+  sendRAGMessage
+} from '../services/chatApi'
+import type { UploadResponse, SessionInfo, RAGChatRequest, MultiDocumentUploadResponse } from '../types'
 import { logger, logApiResponse } from '../utils/logger'
 
 export const useRAG = () => {
@@ -33,48 +41,69 @@ export const useRAG = () => {
     }
   }
 
-  const handlePDFUpload = async (file: File, apiKey: string): Promise<UploadResponse | null> => {
+  /**
+   * Handles document upload to the knowledge base with comprehensive file format support
+   * @param file - Document file to upload (supports multiple formats)
+   * @param apiKey - OpenAI API key for processing
+   * @returns Promise with upload response or null if failed
+   */
+  const handleDocumentUpload = useCallback(async (file: File, apiKey: string): Promise<MultiDocumentUploadResponse | null> => {
     setIsUploading(true)
     setUploadError(null)
 
     try {
-      const response: UploadResponse = await uploadPDF(file, apiKey, sessionId || undefined)
-      logApiResponse('upload-pdf', response)
+      logger.debug('Starting document upload process', { 
+        fileName: file.name, 
+        fileSize: file.size 
+      })
       
-      // Update session ID first
-      setSessionId(response.session_id)
+      const uploadResponse: MultiDocumentUploadResponse = await uploadDocumentToKnowledgeBase(file, apiKey, sessionId || undefined)
       
-      // Then update session info directly from response
-      const updatedSessionInfo: SessionInfo = {
-        session_id: response.session_id,
-        document_count: response.document_count,
-        documents: [response.filename], // Add the new document
-        created_at: new Date().toISOString()
-      }
-      
-      // If we already have session info, merge the documents
-      if (sessionInfo) {
-        updatedSessionInfo.documents = [...new Set([...sessionInfo.documents, response.filename])]
-        updatedSessionInfo.created_at = sessionInfo.created_at
-      }
-      
-      logger.debug('Setting session info:', updatedSessionInfo)
-      setSessionInfo(updatedSessionInfo)
-      
-      // Also load fresh session info from server to be sure
-      setTimeout(() => loadSessionInfo(response.session_id), 100)
-      
-      return response
+            logApiResponse('upload-document', uploadResponse as unknown as Record<string, unknown>)
+        
+        // Update session ID first
+        setSessionId(uploadResponse.session_id)
+        
+        // Then update session info directly from response
+        const updatedSessionInfo: SessionInfo = {
+          session_id: uploadResponse.session_id,
+          document_count: uploadResponse.document_count,
+          documents: [uploadResponse.filename], // Add the new document
+          created_at: new Date().toISOString()
+        }
+        
+        // If we already have session info, merge the documents
+        if (sessionInfo) {
+          updatedSessionInfo.documents = [...new Set([...sessionInfo.documents, uploadResponse.filename])]
+          updatedSessionInfo.created_at = sessionInfo.created_at
+        }
+        
+        logger.debug('Setting session info:', updatedSessionInfo)
+        setSessionInfo(updatedSessionInfo)
+        
+        // Also load fresh session info from server to be sure
+        setTimeout(() => loadSessionInfo(uploadResponse.session_id), 100)
+        
+        return uploadResponse
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Upload failed'
+      logger.error('Document upload failed', error)
       setUploadError(errorMessage)
       return null
     } finally {
       setIsUploading(false)
     }
-  }
+  }, [sessionId, sessionInfo])
 
-  const sendRAGChat = async (
+  /**
+   * Sends a message using RAG (Retrieval-Augmented Generation) with uploaded documents
+   * @param userMessage - The user's message to process
+   * @param apiKey - OpenAI API key for authentication
+   * @param model - Optional AI model to use (defaults to gpt-4o-mini)
+   * @param useRag - Whether to use RAG enhancement (defaults to true)
+   * @returns Promise with readable stream for response, or null if failed
+   */
+  const sendRAGEnhancedChatMessage = useCallback(async (
     userMessage: string,
     apiKey: string,
     model?: string,
@@ -101,7 +130,7 @@ export const useRAG = () => {
     }
 
     try {
-      const response = await sendRAGMessage(request)
+      const ragResponse = await sendRAGEnhancedMessage(request)
       
       // If we used a temporary session and got a successful response, 
       // check if the backend created a real session for us
@@ -121,18 +150,18 @@ export const useRAG = () => {
         }
       }
       
-      return response
+      return ragResponse
     } catch (error) {
       // If we get a session not found error, clear the invalid session
       if (error instanceof Error && error.message.includes('Session not found')) {
         logger.warn('Session no longer exists on server, clearing local session state')
         setSessionInfo(null)
         setSessionId(null)
-        setUploadError('Your session has expired. Please upload your PDF again.')
+        setUploadError('Your session has expired. Please upload your documents again.')
       }
       throw error
     }
-  }
+  }, [sessionId, sessionInfo])
 
   const clearSession = async () => {
     if (sessionId) {
@@ -179,7 +208,7 @@ export const useRAG = () => {
       logger.warn('Session validation failed, clearing local state')
       setSessionInfo(null)
       setSessionId(null)
-      setUploadError('Your session has expired. Please upload your PDF again.')
+      setUploadError('Your session has expired. Please upload your documents again.')
       return false
     }
   }
@@ -199,8 +228,11 @@ export const useRAG = () => {
     uploadError,
     
     // Actions
-    handlePDFUpload,
-    sendRAGChat,
+    handleDocumentUpload,
+    sendRAGEnhancedChatMessage,
+    // Backward compatibility
+    handlePDFUpload: handleDocumentUpload,
+    sendRAGChat: sendRAGEnhancedChatMessage,
     clearSession,
     refreshSessionInfo,
     validateSession,

@@ -5,7 +5,7 @@ import { useRAG } from './hooks/useRAG'
 import { useGlobalKnowledgeBase } from './hooks/useGlobalKnowledgeBase'
 import { 
   WelcomeSection, 
-  PDFUpload, 
+  DocumentUpload, 
   DocumentPanel, 
   ConfirmationModal,
   ErrorBoundary,
@@ -364,7 +364,7 @@ function App() {
             <aside className="sidebar">
             {/* Upload Section */}
             <div className="upload-section">
-              <PDFUpload
+              <DocumentUpload
                 onUploadSuccess={handleUploadSuccess}
                 onUploadError={handleUploadError}
                 disabled={isUploading}

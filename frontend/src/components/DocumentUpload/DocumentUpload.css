@@ -1,0 +1,295 @@
+/* Main container for the document upload component */
+.document-upload-container {
+  margin-bottom: 1rem;
+}
+
+/* Primary upload area where users can drag, drop, or click to upload files */
+.document-upload-area {
+  border: 2px dashed #64748b;
+  border-radius: 12px;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(10px);
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Hover state for the upload area when interactive */
+.document-upload-area:hover:not(.disabled):not(.uploading) {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+}
+
+/* Active drag-over state when files are being dragged over the area */
+.document-upload-area.drag-over {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  transform: scale(1.02);
+  box-shadow: 0 12px 35px rgba(59, 130, 246, 0.2);
+}
+
+/* Upload in progress state */
+.document-upload-area.uploading {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.05);
+  cursor: not-allowed;
+}
+
+/* Disabled state when upload functionality is disabled */
+.document-upload-area.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #6b7280;
+}
+
+/* Content container for the upload interface elements */
+.document-upload-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* Cloud upload icon styling */
+.document-upload-icon {
+  width: 4rem;
+  height: 4rem;
+  color: #6b7280;
+  transition: all 0.3s ease;
+  margin-bottom: 0.5rem;
+}
+
+/* Interactive icon state on hover */
+.document-upload-area:hover:not(.disabled):not(.uploading) .document-upload-icon {
+  color: #3b82f6;
+  transform: scale(1.1);
+}
+
+/* Text content container for title and description */
+.document-upload-text-container {
+  text-align: center;
+  width: 100%;
+}
+
+/* Main title for the upload area */
+.document-upload-title {
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.2;
+}
+
+/* Description text for upload instructions */
+.document-upload-description {
+  font-size: 1rem;
+  color: #374151;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Interactive link styling within the description */
+.document-upload-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 1px solid transparent;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.document-upload-link:hover {
+  color: #1d4ed8;
+  border-bottom-color: #1d4ed8;
+}
+
+/* Hint text showing supported file types and size limits */
+.document-upload-hint {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 0;
+  text-align: center;
+  width: 100%;
+  opacity: 1;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+/* Loading state container when document is being processed */
+.document-upload-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Animated spinner for upload progress indication */
+.document-upload-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid rgba(16, 185, 129, 0.2);
+  border-top: 3px solid #10b981;
+  border-radius: 50%;
+  animation: document-upload-spin 1s linear infinite;
+}
+
+/* Spinner rotation animation */
+@keyframes document-upload-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Loading message text styling */
+.upload-loading-message {
+  color: #374151;
+  font-weight: 600;
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* Container for supported file types information */
+.supported-document-types {
+  margin-top: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background-color: #f9fafb;
+}
+
+/* Summary element for collapsible file types list */
+.supported-document-types summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: #374151;
+  padding: 0.25rem 0;
+  outline: none;
+}
+
+.supported-document-types summary:hover {
+  color: #1f2937;
+}
+
+/* Grid layout for file type descriptions */
+.document-types-grid {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.5rem;
+}
+
+/* Individual file type item styling */
+.document-type-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background-color: #ffffff;
+  border-radius: 0.25rem;
+  border: 1px solid #e5e7eb;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.document-type-item:hover {
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+/* File extension code styling */
+.file-extension {
+  background-color: #f1f5f9;
+  color: #475569;
+  padding: 0.25rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 3rem;
+  text-align: center;
+}
+
+/* File description text styling */
+.file-description {
+  color: #374151;
+  font-weight: 500;
+}
+
+/* Mobile responsive design adjustments */
+@media (max-width: 768px) {
+  .document-upload-area {
+    padding: 2rem 1rem;
+    min-height: 160px;
+  }
+  
+  .document-upload-icon {
+    width: 3rem;
+    height: 3rem;
+  }
+  
+  .document-upload-title {
+    font-size: 1.25rem;
+  }
+  
+  .document-upload-description {
+    font-size: 0.9rem;
+  }
+  
+  .document-upload-hint {
+    font-size: 0.75rem;
+  }
+
+  .document-types-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .document-type-item {
+    font-size: 0.8rem;
+  }
+}
+
+/* Tablet responsive design adjustments */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .document-types-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Focus states for accessibility */
+.document-upload-area:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.supported-document-types summary:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .document-upload-area {
+    border-color: #000000;
+  }
+  
+  .document-upload-title,
+  .document-upload-description {
+    color: #000000;
+  }
+  
+  .document-upload-link {
+    color: #0000EE;
+  }
+} 

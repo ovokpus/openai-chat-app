@@ -13,7 +13,7 @@ export interface ChatState {
   showApiKey: boolean
 }
 
-// New types for PDF and RAG functionality
+// Types for document processing and RAG functionality
 export interface UploadResponse {
   success: boolean
   message: string
@@ -53,13 +53,16 @@ export interface GlobalKnowledgeBaseInfo {
   description: string
 }
 
-export interface PDFUploadState {
+export interface DocumentUploadState {
   isUploading: boolean
   uploadProgress: number
   uploadedFiles: string[]
   sessionId: string | null
   error: string | null
 }
+
+// Backward compatibility alias
+export type PDFUploadState = DocumentUploadState
 
 export interface RAGChatRequest {
   userMessage: string
