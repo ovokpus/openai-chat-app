@@ -4,26 +4,7 @@
   "outputDirectory": "frontend/dist",
   "functions": {
     "api/**": {
-      "excludeFiles": [
-        "etl/**",
-        "tests/**", 
-        "frontend/**",
-        ".venv/**",
-        "node_modules/**",
-        ".git/**",
-        ".vercel/**",
-        "*.cache/**",
-        "**/__pycache__/**",
-        "**/*.md",
-        "**/*.pdf",
-        "**/*.xlsx",
-        "**/*.xls",
-        "**/*.pptx",
-        "**/*.ppt",
-        "**/*.docx",
-        "**/*.doc",
-        "**/.DS_Store"
-      ]
+      "excludeFiles": "{etl,tests,frontend,.venv,node_modules,.git,.vercel,*.cache,**/__pycache__,**/*.md,**/*.pdf,**/*.xlsx,**/*.xls,**/*.pptx,**/*.ppt,**/*.docx,**/*.doc,**/.DS_Store}/**"
     }
   },
   "rewrites": [
