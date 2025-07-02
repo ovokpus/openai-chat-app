@@ -256,7 +256,7 @@ function App() {
       
       logger.debug('Document deleted successfully, refreshing data...')
       await Promise.all([
-        refreshSessionInfo(sessionInfo?.session_id),
+        sessionInfo?.session_id ? refreshSessionInfo(sessionInfo.session_id) : Promise.resolve(),
         refreshGlobalKB()
       ])
       
@@ -303,51 +303,53 @@ function App() {
     <ErrorBoundary>
       <div className="app">
         {/* Header Section */}
-        <header className="app-header">
-          <h1 className="app-title">
-            <SparklesIcon className="title-icon" />
-            AI Chat Assistant
-          </h1>
-          
-          <div className="header-controls">
-            {/* RAG Mode Toggle */}
-            {hasKnowledgeBase && (
+        <header className="header">
+          <div className="header-container">
+            <div className="header-left">
+              <h1 className="header-title">AI Chat Assistant</h1>
+              {/* RAG Mode Toggle */}
+              {hasKnowledgeBase && (
+                <div className="rag-toggle">
+                  <button
+                    onClick={toggleRagMode}
+                    className={`rag-toggle-button ${ragMode ? 'active' : ''}`}
+                    title={ragMode ? 'Disable RAG mode' : 'Enable RAG mode'}
+                  >
+                    <SparklesIcon className="rag-toggle-icon" />
+                    RAG Mode
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="header-controls">
+              {/* API Key Toggle */}
               <button
-                onClick={toggleRagMode}
-                className={`rag-toggle ${ragMode ? 'active' : ''}`}
-                title={ragMode ? 'Disable RAG mode' : 'Enable RAG mode'}
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="api-key-button"
+                title="Configure API Key"
               >
-                <SparklesIcon className="toggle-icon" />
-                RAG Mode
+                <KeyIcon className="api-key-icon" />
+                <span className="hidden-mobile">API Key</span>
               </button>
-            )}
-            
-            {/* API Key Toggle */}
-            <button
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="api-key-toggle"
-              title="Configure API Key"
-            >
-              <KeyIcon className="toggle-icon" />
-              API Key
-            </button>
+            </div>
           </div>
         </header>
 
         {/* API Key Configuration */}
         {showApiKey && (
           <div className="api-key-section">
-            <div className="api-key-content">
+            <div className="api-key-form">
+              <label className="api-key-label">OpenAI API Key:</label>
               <input
                 type="password"
                 value={apiKey || ''}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Enter your OpenAI API key..."
+                placeholder="sk-..."
                 className="api-key-input"
               />
               <button
                 onClick={() => setShowApiKey(false)}
-                className="api-key-done"
+                className="done-button"
               >
                 Done
               </button>
@@ -356,9 +358,10 @@ function App() {
         )}
 
         {/* Main Content Area */}
-        <div className="app-content">
-          {/* Sidebar */}
-          <aside className="app-sidebar">
+        <main className="main-container">
+          <div className="layout-container">
+            {/* Sidebar */}
+            <aside className="sidebar">
             {/* Upload Section */}
             <div className="upload-section">
               <PDFUpload
@@ -379,30 +382,31 @@ function App() {
             </div>
           </aside>
 
-          {/* Chat Area */}
-          <main className="app-main">
-            {hasMessages || apiKey ? (
-              <ChatContainer
-                messages={messages}
-                input={input}
-                setInput={setInput}
-                isLoading={isLoading}
-                apiKey={apiKey}
-                ragMode={ragMode}
-                onSubmit={handleChatSubmit}
-                messagesEndRef={messagesEndRef}
-                globalKBReady={globalKBReady}
-                                 hasActiveSession={hasActiveSession(globalKBReady)}
-              />
-            ) : (
-                             <WelcomeSection
-                 apiKey={apiKey}
-                 onEnterApiKey={() => setShowApiKey(true)}
-                 onTryGlobalKB={handleTryGlobalKB}
-               />
-            )}
-          </main>
-        </div>
+                      {/* Chat Area */}
+            <div className="chat-container">
+              {hasMessages || apiKey ? (
+                <ChatContainer
+                  messages={messages}
+                  input={input}
+                  setInput={setInput}
+                  isLoading={isLoading}
+                  apiKey={apiKey}
+                  ragMode={ragMode}
+                  onSubmit={handleChatSubmit}
+                  messagesEndRef={messagesEndRef}
+                  globalKBReady={globalKBReady}
+                  hasActiveSession={hasActiveSession(globalKBReady)}
+                />
+              ) : (
+                <WelcomeSection
+                  apiKey={apiKey}
+                  onEnterApiKey={() => setShowApiKey(true)}
+                  onTryGlobalKB={handleTryGlobalKB}
+                />
+              )}
+            </div>
+          </div>
+        </main>
 
         {/* Notifications */}
         <NotificationManager {...notificationConfig} />
