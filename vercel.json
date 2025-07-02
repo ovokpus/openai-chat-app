@@ -13,19 +13,11 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "api/app.py"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "frontend/dist/assets/$1"
-    },
-    {
-      "src": "/vite.svg",
-      "dest": "frontend/dist/vite.svg"
+      "dest": "/api/app.py"
     },
     {
       "src": "/(.*)",
-      "dest": "frontend/dist/index.html"
+      "dest": "frontend/dist/$1"
     }
   ]
 } 
