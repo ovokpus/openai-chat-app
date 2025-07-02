@@ -4,7 +4,7 @@
   "outputDirectory": "frontend/dist",
   "functions": {
     "api/**": {
-      "excludeFiles": "{etl,tests,frontend,.venv,node_modules,.git,.vercel,*.cache,**/__pycache__,**/*.md,**/*.pdf,**/*.xlsx,**/*.xls,**/*.pptx,**/*.ppt,**/*.docx,**/*.doc,**/.DS_Store}/**"
+      "excludeFiles": "{etl/**,tests/**,frontend/**,.venv/**,node_modules/**,.git/**,.vercel/**,**/__pycache__/**,**/*.cache,**/*.md,**/.DS_Store,etl/regulatory_docs/**/*.pdf,etl/regulatory_docs/**/*.xlsx,etl/regulatory_docs/**/*.xls,etl/regulatory_docs/**/*.pptx,etl/regulatory_docs/**/*.docx,etl/uploaded_docs/**}"
     }
   },
   "rewrites": [
