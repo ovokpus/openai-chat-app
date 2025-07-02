@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
   "functions": {
     "api/**": {
       "excludeFiles": [
@@ -24,38 +26,6 @@
       ]
     }
   },
-  "builds": [
-    {
-      "src": "api/app.py",
-      "use": "@vercel/python@4.3.0",
-      "config": {
-        "includeFiles": [
-          "api/app.py",
-          "api/requirements.txt",
-          "api/models/**",
-          "api/routers/**", 
-          "api/services/preprocessed_knowledge_base.json",
-          "api/services/global_kb_service.py",
-          "api/services/session_service.py",
-          "api/services/dependencies.py",
-          "aimakerspace/openai_utils/**",
-          "aimakerspace/vectordatabase.py",
-          "aimakerspace/rag_pipeline.py",
-          "aimakerspace/regulatory_rag_enhancer.py",
-          "aimakerspace/multi_document_processor.py",
-          "aimakerspace/text_utils.py",
-          "aimakerspace/__init__.py"
-        ]
-      }
-    },
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
