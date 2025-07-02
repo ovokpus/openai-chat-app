@@ -80,12 +80,15 @@ export const useRAG = () => {
     useRag: boolean = true
   ): Promise<ReadableStreamDefaultReader<Uint8Array> | null> => {
     // Use sessionId from sessionInfo if sessionId state is null
-    const activeSessionId = sessionId || sessionInfo?.session_id
+    let activeSessionId = sessionId || sessionInfo?.session_id
     
     console.log('SendRAGChat - sessionId:', sessionId, 'sessionInfo.session_id:', sessionInfo?.session_id, 'using:', activeSessionId)
     
+    // If no session exists, generate a temporary one for global knowledge base access
     if (!activeSessionId) {
-      throw new Error('No active session. Please upload a PDF first.')
+      console.log('No active session, generating temporary session for global knowledge base access')
+      activeSessionId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      console.log('Generated temporary session ID:', activeSessionId)
     }
 
     const request: RAGChatRequest = {
@@ -97,7 +100,27 @@ export const useRAG = () => {
     }
 
     try {
-      return await sendRAGMessage(request)
+      const response = await sendRAGMessage(request)
+      
+      // If we used a temporary session and got a successful response, 
+      // check if the backend created a real session for us
+      if (!sessionId && !sessionInfo && activeSessionId.startsWith('temp-')) {
+        console.log('Checking if backend created a session for temporary session')
+        try {
+          // Try to get session info for the temporary session
+          const newSessionInfo = await getSessionInfo(activeSessionId)
+          if (newSessionInfo) {
+            console.log('Backend created session for us:', newSessionInfo)
+            setSessionId(activeSessionId)
+            setSessionInfo(newSessionInfo)
+          }
+        } catch (error) {
+          // Session might not exist on backend, that's ok for global KB access
+          console.log('Temporary session not found on backend, using global knowledge base')
+        }
+      }
+      
+      return response
     } catch (error) {
       // If we get a session not found error, clear the invalid session
       if (error instanceof Error && error.message.includes('Session not found')) {
@@ -125,11 +148,13 @@ export const useRAG = () => {
     setUploadError(null)
   }
 
-  const hasActiveSession = (): boolean => {
+  const hasActiveSession = (globalKBReady: boolean = false): boolean => {
     const hasSession = !!(sessionInfo && sessionInfo.document_count > 0)
     const hasSessionId = !!(sessionId || sessionInfo?.session_id)
-    console.log('Has active session:', hasSession, 'hasSessionId:', hasSessionId, 'sessionInfo:', sessionInfo, 'sessionId:', sessionId) // Debug log
-    return hasSession && hasSessionId
+    console.log('Has active session:', hasSession, 'hasSessionId:', hasSessionId, 'globalKBReady:', globalKBReady, 'sessionInfo:', sessionInfo, 'sessionId:', sessionId) // Debug log
+    
+    // Return true if user has uploaded documents OR if global knowledge base is ready
+    return (hasSession && hasSessionId) || globalKBReady
   }
 
   const getDocumentCount = (): number => {

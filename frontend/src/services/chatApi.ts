@@ -1,4 +1,4 @@
-import type { Message, UploadResponse, SessionInfo, RAGChatRequest } from '../types'
+import type { Message, UploadResponse, SessionInfo, RAGChatRequest, MultiDocumentUploadResponse } from '../types'
 
 const DEVELOPER_MESSAGE = `You are a helpful AI assistant. When providing responses:
 
@@ -62,6 +62,31 @@ export const uploadPDF = async (
   }
 
   const response = await fetch('/api/upload-pdf', {
+    method: 'POST',
+    body: formData
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const uploadDocument = async (
+  file: File,
+  apiKey: string,
+  sessionId?: string
+): Promise<MultiDocumentUploadResponse> => {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('api_key', apiKey)
+  if (sessionId) {
+    formData.append('session_id', sessionId)
+  }
+
+  const response = await fetch('/api/upload-document', {
     method: 'POST',
     body: formData
   })

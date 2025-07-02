@@ -22,6 +22,17 @@ export interface UploadResponse {
   filename: string
 }
 
+export interface MultiDocumentUploadResponse {
+  success: boolean
+  message: string
+  session_id: string
+  document_count: number
+  filename: string
+  doc_type: string
+  regulatory_type: string
+  chunks_created: number
+}
+
 export interface SessionInfo {
   session_id: string
   document_count: number

@@ -1,6 +1,7 @@
 import { KeyIcon, PaperAirplaneIcon, SparklesIcon } from '@heroicons/react/24/solid'
 import { useChat } from './hooks/useChat'
 import { useRAG } from './hooks/useRAG'
+import { useGlobalKnowledgeBase } from './hooks/useGlobalKnowledgeBase'
 import { WelcomeSection, MessageBubble, LoadingIndicator, PDFUpload, DocumentPanel } from './components'
 import 'katex/dist/katex.min.css'
 import './App.css'
@@ -35,6 +36,13 @@ function App() {
     validateSession
   } = useRAG()
 
+  // Global Knowledge Base functionality
+  const {
+    globalKB,
+    isReady: globalKBReady,
+    isInitializing: globalKBInitializing
+  } = useGlobalKnowledgeBase()
+
   // Local state for RAG mode and UI
   const [ragMode, setRagMode] = useState(false)
   const [showUploadError, setShowUploadError] = useState(false)
@@ -62,20 +70,25 @@ function App() {
     setIsLoading(true)
 
     try {
-      if (ragMode && hasActiveSession()) {
-        // Validate session before making RAG request
-        const isValidSession = await validateSession()
-        if (!isValidSession) {
-          addMessage({ 
-            role: 'assistant', 
-            content: 'Your session has expired. Please upload your PDF again to continue using RAG mode.' 
-          })
-          setRagMode(false)
-          setIsLoading(false)
-          return
+      if (ragMode && hasActiveSession(globalKBReady)) {
+        // If user has active session, validate it; otherwise use global KB
+        if (hasActiveSession(false)) { // Check only user session, not global KB
+          const isValidSession = await validateSession()
+          if (!isValidSession) {
+            // Fall back to global KB if available
+            if (!globalKBReady) {
+              addMessage({ 
+                role: 'assistant', 
+                content: 'Your session has expired. Please upload a document again to continue using RAG mode.' 
+              })
+              setRagMode(false)
+              setIsLoading(false)
+              return
+            }
+          }
         }
 
-        // Use RAG chat - stream the response
+        // Use RAG chat - stream the response (works with both user docs and global KB)
         const reader = await sendRAGChat(userMessage, apiKey)
         
         if (reader) {
@@ -188,8 +201,15 @@ function App() {
   }
 
   const toggleRagMode = () => {
-    if (hasActiveSession()) {
+    if (hasActiveSession(globalKBReady)) {
       setRagMode(!ragMode)
+    }
+  }
+
+  const handleTryGlobalKB = () => {
+    if (globalKBReady) {
+      setRagMode(true)
+      setInput("What are the Basel III minimum capital requirements for CET1 ratio?")
     }
   }
 
@@ -200,7 +220,7 @@ function App() {
         <div className="header-container">
           <div className="header-left">
             <h1 className="header-title">OpenAI Chat</h1>
-            {hasActiveSession() && (
+            {hasActiveSession(globalKBReady) && (
               <div className="rag-toggle">
                 <button
                   onClick={toggleRagMode}
@@ -310,8 +330,10 @@ function App() {
                 <WelcomeSection 
                   apiKey={apiKey} 
                   onEnterApiKey={() => setShowApiKey(true)}
-                  hasRAG={hasActiveSession()}
+                  hasRAG={hasActiveSession(globalKBReady)}
                   ragMode={ragMode}
+                  globalKB={globalKB}
+                  onTryGlobalKB={handleTryGlobalKB}
                 />
               )}
               
@@ -330,10 +352,14 @@ function App() {
 
             {/* Input Area */}
             <div className="input-area">
-              {ragMode && hasActiveSession() && (
+              {ragMode && hasActiveSession(globalKBReady) && (
                 <div className="rag-indicator-input">
                   <SparklesIcon className="rag-input-icon" />
-                  <span>RAG mode active - asking your documents</span>
+                  <span>
+                    {hasActiveSession(false) 
+                      ? 'RAG mode active - asking your documents' 
+                      : 'RAG mode active - asking regulatory knowledge base'}
+                  </span>
                 </div>
               )}
               
@@ -343,8 +369,10 @@ function App() {
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder={ragMode && hasActiveSession() 
-                      ? "Ask a question about your uploaded documents..." 
+                    placeholder={ragMode && hasActiveSession(globalKBReady)
+                      ? hasActiveSession(false) 
+                        ? "Ask a question about your uploaded documents..." 
+                        : "Ask about Basel III, COREP, FINREP, or regulatory reporting..."
                       : "Type your message..."}
                     className="message-input"
                     disabled={isLoading || !apiKey}
