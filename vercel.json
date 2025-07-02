@@ -8,7 +8,18 @@
       "use": "@vercel/python@4.3.0",
       "config": {
         "includeFiles": [
-          "api/services/preprocessed_knowledge_base.json"
+          "api/**",
+          "aimakerspace/**",
+          "!etl/**",
+          "!tests/**",
+          "!.venv/**",
+          "!**/*.pdf",
+          "!**/*.xlsx",
+          "!**/*.xls",
+          "!**/*.pptx",
+          "!**/*.ppt",
+          "!**/*.docx",
+          "!**/*.doc"
         ]
       }
     }
