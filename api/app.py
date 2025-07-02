@@ -6,12 +6,9 @@ Refactored from monolithic structure to modular architecture.
 import os
 import sys
 import asyncio
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-
-# Add parent directory to Python path for aimakerspace imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import modular routers
 from routers import chat_router, documents_router
@@ -88,7 +85,6 @@ async def health_check():
 @app.post("/api/upload-pdf")
 async def upload_pdf_legacy(request: Request):
     """Legacy PDF upload endpoint - redirects to new document upload"""
-    from fastapi import HTTPException
     raise HTTPException(
         status_code=301, 
         detail="This endpoint has been moved to /api/upload-document"
@@ -105,6 +101,23 @@ async def rag_chat_legacy(request: Request):
     """Legacy RAG chat endpoint"""
     # This will be handled by the chat router
     pass
+
+@app.get("/api/test-aimakerspace")
+async def test_aimakerspace():
+    """Test endpoint to verify aimakerspace package installation"""
+    try:
+        import aimakerspace
+        from aimakerspace import openai_utils, rag_pipeline
+        return {
+            "status": "success",
+            "message": "aimakerspace package is installed and accessible",
+            "version": getattr(aimakerspace, '__version__', 'unknown'),
+            "location": aimakerspace.__file__
+        }
+    except ImportError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to import aimakerspace: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 # Vercel serverless function export
 handler = app
