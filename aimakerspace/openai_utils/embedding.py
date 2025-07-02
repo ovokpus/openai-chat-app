@@ -1,22 +1,30 @@
 from dotenv import load_dotenv
 from openai import AsyncOpenAI, OpenAI
 import openai
-from typing import List
+from typing import List, Optional
 import os
 import asyncio
 
 
 class EmbeddingModel:
-    def __init__(self, embeddings_model_name: str = "text-embedding-3-small"):
+    def __init__(self, embeddings_model_name: str = "text-embedding-3-small", api_key: Optional[str] = None):
         load_dotenv()
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.async_client = AsyncOpenAI()
-        self.client = OpenAI()
-
+        
+        # Use provided API key or fallback to environment variable
+        if api_key:
+            self.openai_api_key = api_key
+        else:
+            self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        
         if self.openai_api_key is None:
             raise ValueError(
-                "OPENAI_API_KEY environment variable is not set. Please set it to your OpenAI API key."
+                "OpenAI API key must be provided either as a parameter or through OPENAI_API_KEY environment variable."
             )
+        
+        # Initialize clients with the API key
+        self.async_client = AsyncOpenAI(api_key=self.openai_api_key)
+        self.client = OpenAI(api_key=self.openai_api_key)
+        
         openai.api_key = self.openai_api_key
         self.embeddings_model_name = embeddings_model_name
 

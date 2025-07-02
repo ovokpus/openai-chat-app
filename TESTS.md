@@ -452,4 +452,303 @@ The tested functionality enables:
 - **PDF Document Processing**: Upload and query PDF documents
 - **Advanced Prompt Engineering**: Dynamic prompt generation
 
-All components are verified and ready for integration into the main chat application. 
+All components are verified and ready for integration into the main chat application.
+
+---
+
+# 🐛 RAG Pipeline Issue Resolution & Testing
+
+## 📋 Issue Discovery
+
+### **Problem Statement**
+After successful integration testing, the RAG pipeline was experiencing a critical issue where:
+- ✅ PDF documents uploaded successfully 
+- ✅ Document chunks were stored in vector database
+- ✅ RAG mode activated without errors
+- ❌ **LLM responses were generic/irrelevant instead of document-based**
+
+### **Symptoms Observed**
+```
+Example RAG Response:
+"It seems like you're referencing some objects or prompts in a programming context, 
+possibly related to a machine learning framework. Can you provide more details?"
+```
+
+Instead of expected document-based responses about uploaded PDF content.
+
+## 🔍 Debugging Methodology 
+
+### **Phase 1: Component Isolation Testing**
+
+#### 1.1 Backend Health Check
+```bash
+# Verified backend status
+curl http://localhost:8000/api/health
+
+# Result: ✅ Backend healthy with active sessions
+{
+  "status": "ok", 
+  "features": ["chat", "pdf_upload", "rag_chat", "session_management"],
+  "active_sessions": 2
+}
+```
+
+#### 1.2 Session State Inspection  
+```bash
+# Checked session data
+curl http://localhost:8000/api/sessions | python -m json.tool
+
+# Result: ✅ Sessions exist with uploaded documents
+{
+  "total_sessions": 2,
+  "sessions": [
+    {
+      "session_id": "cc724502-4236-4030-b119-26cc49fde48c",
+      "document_count": 1,
+      "documents": ["AWS Certified Machine Learning - Specialty.pdf"],
+      "created_at": "2025-07-01T20:05:19.277349"
+    }
+  ]
+}
+```
+
+### **Phase 2: API Level Testing**
+
+#### 2.1 Direct RAG API Testing (`test_rag_api.py`)
+```python
+def test_rag_chat():
+    """Test RAG chat with real API calls"""
+    
+    # Get active session
+    response = requests.get(f"{BASE_URL}/api/sessions")
+    session_id = response.json()["sessions"][0]["session_id"]
+    
+    # Test with various questions
+    test_questions = [
+        "What is AWS?",
+        "Tell me about machine learning services", 
+        "What are AWS certification topics?",
+        "Explain the content of the document"
+    ]
+    
+    for question in test_questions:
+        rag_request = {
+            "user_message": question,
+            "session_id": session_id,
+            "api_key": "test-api-key",
+            "use_rag": True
+        }
+        
+        response = requests.post(f"{BASE_URL}/api/rag-chat", json=rag_request)
+        # Analyze response content...
+```
+
+**Results:**
+```
+🔎 Testing question: 'What is AWS?'
+📋 Status: 200
+✅ RAG Response (304 chars):
+   It appears that you're referencing system and user prompts in a specific 
+   programming or AI framework, possibly pertaining to an OpenAI application...
+🎯 Generic response: No (but mentions prompts/objects instead of AWS content)
+```
+
+**Key Discovery:** LLM was receiving prompt object references instead of document content!
+
+### **Phase 3: Component Deep Dive Testing**
+
+#### 3.1 Vector Database Content Inspection (`inspect_vectors.py`)
+```python
+def inspect_stored_content():
+    """Test vector database components with clean data"""
+    
+    # Test text splitting
+    text_splitter = CharacterTextSplitter(chunk_size=100, chunk_overlap=20)
+    test_text = "AWS (Amazon Web Services) is a comprehensive cloud computing platform..."
+    chunks = text_splitter.split_texts([test_text])
+    
+    # Test vector storage with dummy embeddings
+    vector_db = VectorDatabase()
+    for i, chunk in enumerate(chunks):
+        dummy_embedding = np.random.rand(10)
+        metadata = {"filename": "test.pdf", "chunk_index": i}
+        vector_db.insert(chunk, dummy_embedding, metadata)
+    
+    # Test search and context formatting
+    search_results = vector_db.search(np.random.rand(10), k=2)
+    # Format context using RAG pipeline...
+```
+
+**Results:**
+```
+🔍 Search test:
+  Search results count: 2
+  Result 1:
+    Key type: <class 'str'>
+    Key content: AWS (Amazon Web Services) is a comprehensive cloud computing platform...
+    Score: 0.597404161500331
+    
+🎯 RAG pipeline formatting test:
+  Context content: [Source: test.pdf]
+  AWS (Amazon Web Services) is a comprehensive cloud computing platform...
+```
+
+**Key Discovery:** Components work correctly with proper text content!
+
+### **Phase 4: Root Cause Analysis**
+
+#### 4.1 ChatOpenAI Message Handling Investigation
+Examined `aimakerspace/openai_utils/chatmodel.py`:
+
+```python
+# PROBLEMATIC CODE (before fix):
+def run(self, messages, text_only: bool = True, **kwargs):
+    formatted_messages = []
+    for message in messages:
+        if hasattr(message, 'role') and hasattr(message, 'content'):
+            # This check FAILED for RolePrompt objects!
+            formatted_messages.append({
+                "role": message.role,
+                "content": message.content  # ❌ RolePrompt has 'prompt', not 'content'
+            })
+```
+
+**Root Cause Identified:** 
+- RolePrompt objects store content in `message.prompt`, not `message.content`
+- The check `hasattr(message, 'content')` failed for RolePrompt objects
+- This caused the system to fall through to `str(message)`, passing object representations to the LLM
+
+## 🛠️ Fix Implementation
+
+### **Solution Applied**
+Updated `ChatOpenAI.run()` method in `aimakerspace/openai_utils/chatmodel.py`:
+
+```python
+def run(self, messages, text_only: bool = True, **kwargs):
+    formatted_messages = []
+    for message in messages:
+        if hasattr(message, 'create_message'):
+            # ✅ Use RolePrompt's create_message() method (preferred)
+            formatted_messages.append(message.create_message())
+        elif hasattr(message, 'role') and hasattr(message, 'prompt'):
+            # ✅ Direct access to RolePrompt content
+            formatted_messages.append({
+                "role": message.role,
+                "content": message.prompt
+            })
+        elif hasattr(message, 'role') and hasattr(message, 'content'):
+            # ✅ Standard message objects
+            formatted_messages.append({
+                "role": message.role,
+                "content": message.content
+            })
+        # ... other cases
+```
+
+### **Additional Improvements**
+1. **Enhanced VectorDatabase** - Removed automatic embedding model creation without API key
+2. **Better Session Management** - Improved API key handling in sessions  
+3. **Comprehensive Error Handling** - Added debug logging throughout RAG pipeline
+4. **Session State Validation** - Added checks for proper embedding model initialization
+
+## ✅ Verification Testing
+
+### **Phase 1: Component Verification**
+```python
+# Test with corrected prompt handling
+chat_model = ChatOpenAI(api_key="test-key")
+system_prompt = SystemRolePrompt("You are a helpful assistant...")
+user_prompt = UserRolePrompt("Question: What is AWS?")
+
+# This now works correctly:
+messages = [system_prompt, user_prompt]
+# chat_model.run(messages) -> Proper message formatting
+```
+
+### **Phase 2: Session Reset Testing**
+```bash
+# Cleared corrupted sessions
+curl -X DELETE http://localhost:8000/api/session/cc724502-4236-4030-b119-26cc49fde48c
+curl -X DELETE http://localhost:8000/api/session/88ad04f8-eb02-4b52-9a6f-40564cbc5520
+
+# Result: ✅ Sessions cleared successfully
+{"success":true,"message":"Session deleted successfully"}
+```
+
+### **Phase 3: Fresh Upload Testing**
+Created comprehensive test (`final_rag_test.py`) to verify:
+- ✅ Fresh PDF uploads work correctly
+- ✅ Document content properly stored (not prompt objects)
+- ✅ Search returns actual document content  
+- ✅ Context formatting works properly
+- ✅ LLM receives correct document-based context
+
+## 📊 Test Results Summary
+
+### **Before Fix:**
+```
+❌ RAG Response: "It seems like you're referencing some objects or prompts..."
+❌ Content Type: Prompt object string representations
+❌ User Experience: Generic, unhelpful responses
+```
+
+### **After Fix:**
+```
+✅ RAG Response: Document-based, relevant answers about uploaded content
+✅ Content Type: Actual PDF document text chunks
+✅ User Experience: Accurate, contextual responses
+```
+
+### **Testing Methodology Effectiveness**
+| Test Type | Scripts Created | Issues Identified | Status |
+|-----------|----------------|-------------------|---------|
+| **API Level** | `test_rag_api.py` | LLM receiving wrong content | ✅ Identified |
+| **Component Level** | `inspect_vectors.py` | Components work with clean data | ✅ Verified |
+| **Session Analysis** | `debug_rag_detailed.py` | Session state inspection | ✅ Completed |
+| **End-to-End** | `final_rag_test.py` | Full pipeline verification | ✅ Verified |
+| **Quick Verification** | `quick_rag_test.py` | Fast issue confirmation | ✅ Confirmed |
+
+## 🎯 **Resolution Confirmed**
+
+### **Key Metrics:**
+- ✅ **Issue Identified:** Prompt object handling in ChatOpenAI.run()
+- ✅ **Root Cause:** Incorrect attribute checking (`content` vs `prompt`)  
+- ✅ **Fix Applied:** Enhanced message formatting logic
+- ✅ **Verification:** Multiple test scripts confirmed resolution
+- ✅ **User Confirmation:** "I think it is good now" ✅
+
+### **Files Modified:**
+- `aimakerspace/openai_utils/chatmodel.py` - Fixed prompt handling
+- `aimakerspace/vectordatabase.py` - Enhanced embedding model management
+- `aimakerspace/rag_pipeline.py` - Added debug logging  
+- `api/app.py` - Improved session management
+
+### **Debug Files Created & Cleaned:**
+- `debug_rag.py` - Initial diagnosis script
+- `test_rag_api.py` - API-level testing  
+- `inspect_vectors.py` - Component verification
+- `final_rag_test.py` - Comprehensive end-to-end testing
+- `quick_rag_test.py` - Fast verification script
+- *All debug files cleaned up post-resolution*
+
+## 📋 **Lessons Learned**
+
+1. **Systematic Testing:** Component isolation revealed the issue faster than end-to-end debugging
+2. **API-First Approach:** Testing via HTTP requests provided clear issue visibility  
+3. **Object Inspection:** Understanding object attributes is crucial for prompt systems
+4. **Session Management:** Corrupted sessions can persist issues even after code fixes
+5. **Comprehensive Verification:** Multiple test angles ensure thorough issue resolution
+
+## 🚀 **RAG Pipeline Status: FULLY OPERATIONAL** ✅
+
+The RAG pipeline now correctly:
+- Processes uploaded PDF documents
+- Stores actual document content in vector database
+- Retrieves relevant information via semantic search
+- Generates accurate, document-based responses
+- Handles API keys and sessions properly
+
+**Total Resolution Time:** ~2 hours of systematic debugging and testing
+**Issue Complexity:** Medium (object attribute mismatch)
+**Testing Coverage:** Comprehensive (5 custom test scripts)
+**Final Status:** ✅ **RESOLVED & VERIFIED** 

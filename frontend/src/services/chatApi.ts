@@ -1,4 +1,4 @@
-import type { Message } from '../types'
+import type { Message, UploadResponse, SessionInfo, RAGChatRequest } from '../types'
 
 const DEVELOPER_MESSAGE = `You are a helpful AI assistant. When providing responses:
 
@@ -47,4 +47,79 @@ export const sendChatMessage = async (
   }
 
   return response.body?.getReader() || null
+}
+
+export const uploadPDF = async (
+  file: File,
+  apiKey: string,
+  sessionId?: string
+): Promise<UploadResponse> => {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('api_key', apiKey)
+  if (sessionId) {
+    formData.append('session_id', sessionId)
+  }
+
+  const response = await fetch('/api/upload-pdf', {
+    method: 'POST',
+    body: formData
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || `HTTP error! status: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export const sendRAGMessage = async (
+  request: RAGChatRequest
+): Promise<ReadableStreamDefaultReader<Uint8Array> | null> => {
+  const requestBody = {
+    user_message: request.userMessage,
+    session_id: request.sessionId,
+    api_key: request.apiKey,
+    model: request.model || "gpt-4o-mini",
+    use_rag: request.useRag !== false
+  }
+  
+  console.log('Sending RAG request:', requestBody) // Debug log
+  
+  const response = await fetch('/api/rag-chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('RAG request failed:', response.status, errorText) // Debug log
+    throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
+  }
+
+  return response.body?.getReader() || null
+}
+
+export const getSessionInfo = async (sessionId: string): Promise<SessionInfo> => {
+  const response = await fetch(`/api/session/${sessionId}`)
+  
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`)
+  }
+  
+  return response.json()
+}
+
+export const deleteSession = async (sessionId: string): Promise<void> => {
+  const response = await fetch(`/api/session/${sessionId}`, {
+    method: 'DELETE'
+  })
+  
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`)
+  }
 } 
