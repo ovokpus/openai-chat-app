@@ -23,7 +23,7 @@ def preprocess_knowledge_base():
     print("🚀 Starting knowledge base preprocessing...")
     
     # Path to knowledge base documents
-    knowledge_base_path = os.path.join("api", "services", "knowledge_base", "regulatory_docs")
+    knowledge_base_path = os.path.join("knowledge_base", "regulatory_docs")
     
     if not os.path.exists(knowledge_base_path):
         print(f"❌ Knowledge base path not found: {knowledge_base_path}")
@@ -105,7 +105,7 @@ def preprocess_knowledge_base():
     }
     
     # Save to JSON file
-    output_path = os.path.join("api", "services", "preprocessed_knowledge_base.json")
+    output_path = os.path.join("..", "api", "services", "preprocessed_knowledge_base.json")
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(preprocessed_data, f, ensure_ascii=False, indent=2)
     
