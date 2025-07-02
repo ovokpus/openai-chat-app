@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 # Add parent directory to Python path for aimakerspace imports
@@ -167,6 +168,147 @@ class GlobalKnowledgeBaseService:
             print(f"❌ Failed to create global knowledge base instance: {e}")
             return None
     
+    async def add_document_to_global_kb(self, processed_docs: List, filename: str, api_key: str) -> bool:
+        """Add a user-uploaded document to the global knowledge base"""
+        if not self.global_knowledge_base["initialized"]:
+            print(f"❌ Global knowledge base not initialized")
+            return False
+        
+        try:
+            print(f"🌍 Adding {filename} to global knowledge base with {len(processed_docs)} chunks...")
+            
+            # Get or create global knowledge base with API key
+            global_kb = await self.get_global_knowledge_base(api_key)
+            if not global_kb:
+                print(f"❌ Could not get global knowledge base")
+                return False
+            
+            vector_db = global_kb["vector_db"]
+            chunks_added = 0
+            
+            # Process each document chunk
+            for i, doc in enumerate(processed_docs):
+                try:
+                    # Generate embedding for the document content
+                    embeddings = await vector_db.embedding_model.async_get_embeddings([doc.content])
+                    
+                    # Create metadata
+                    metadata = doc.metadata.copy()
+                    metadata.update({
+                        "filename": filename,
+                        "chunk_index": i,
+                        "upload_time": datetime.now().isoformat(),
+                        "source": "user_uploaded",
+                        "is_original": False  # Mark as user-uploaded, not original
+                    })
+                    
+                    # Insert into global vector database
+                    vector_db.insert(doc.content, embeddings[0], metadata)
+                    chunks_added += 1
+                    
+                    # Add to chunked_documents list
+                    chunk_obj = {
+                        "text": doc.content,
+                        "metadata": metadata
+                    }
+                    self.global_knowledge_base["chunked_documents"].append(chunk_obj)
+                    
+                    if (i + 1) % 10 == 0:
+                        print(f"🔄 Added chunk {i + 1}/{len(processed_docs)} to global KB...")
+                        
+                except Exception as e:
+                    print(f"⚠️ Error adding chunk {i+1} to global KB: {e}")
+                    continue
+            
+            # Update global knowledge base tracking
+            if filename not in self.global_knowledge_base["user_uploaded_documents"]:
+                self.global_knowledge_base["user_uploaded_documents"].append(filename)
+            
+            # Update the references
+            self.global_knowledge_base.update({
+                "vector_db": vector_db,
+                "rag_pipeline": global_kb["rag_pipeline"],
+                "regulatory_enhancer": global_kb["regulatory_enhancer"],
+                "embedding_model": global_kb["rag_pipeline"].vector_db.embedding_model,
+                "chat_model": global_kb["rag_pipeline"].llm
+            })
+            
+            print(f"✅ Successfully added {chunks_added} chunks from {filename} to global knowledge base")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error adding document to global knowledge base: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    async def remove_document_from_global_kb(self, filename: str, api_key: str) -> bool:
+        """Remove a user-uploaded document from the global knowledge base"""
+        if not self.global_knowledge_base["initialized"]:
+            print(f"❌ Global knowledge base not initialized")
+            return False
+        
+        # Check if this is a user-uploaded document
+        if filename not in self.global_knowledge_base["user_uploaded_documents"]:
+            print(f"❌ Cannot remove {filename} - not a user-uploaded document or doesn't exist")
+            return False
+        
+        try:
+            print(f"🗑️ Removing {filename} from global knowledge base...")
+            
+            # Get current global knowledge base
+            global_kb = await self.get_global_knowledge_base(api_key)
+            if not global_kb:
+                print(f"❌ Could not get global knowledge base")
+                return False
+            
+            vector_db = global_kb["vector_db"]
+            chunks_removed = 0
+            
+            # Find and remove all chunks for this filename
+            if hasattr(vector_db, 'vectors') and vector_db.vectors:
+                # Create new vectors dict without the chunks from this file
+                new_vectors = {}
+                new_metadata = {}
+                
+                for text, vector in vector_db.vectors.items():
+                    metadata = vector_db.get_metadata(text)
+                    if metadata and metadata.get("filename") != filename:
+                        # Keep this chunk (it's not from the file we're removing)
+                        new_vectors[text] = vector
+                        new_metadata[text] = metadata
+                    else:
+                        chunks_removed += 1
+                
+                # Replace the vectors
+                vector_db.vectors = new_vectors
+                vector_db.metadata = new_metadata
+            
+            # Remove from chunked_documents list
+            self.global_knowledge_base["chunked_documents"] = [
+                chunk for chunk in self.global_knowledge_base["chunked_documents"]
+                if chunk.get("metadata", {}).get("filename") != filename
+            ]
+            
+            # Remove from user_uploaded_documents list
+            self.global_knowledge_base["user_uploaded_documents"].remove(filename)
+            
+            # Update the references
+            self.global_knowledge_base.update({
+                "vector_db": vector_db,
+                "rag_pipeline": global_kb["rag_pipeline"],
+                "regulatory_enhancer": global_kb["regulatory_enhancer"]
+            })
+            
+            print(f"✅ Successfully removed {chunks_removed} chunks from {filename} from global knowledge base")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error removing document from global knowledge base: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def get_info(self) -> Dict[str, Any]:
         """Get global knowledge base information"""
         if not self.global_knowledge_base["initialized"]:

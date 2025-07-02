@@ -2,34 +2,55 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from openai import OpenAI
 from models.request_models import ChatRequest, RAGChatRequest, RegulatoryRAGRequest
-from services.session_service import SessionService
-from services.global_kb_service import GlobalKnowledgeBaseService
 
 router = APIRouter()
 
-# Services
-session_service = SessionService()
-global_kb_service = GlobalKnowledgeBaseService()
+# Services - using shared instances
+from services.dependencies import session_service, global_kb_service
 
-DEVELOPER_MESSAGE = """You are a helpful AI assistant. When providing responses:
+DEVELOPER_MESSAGE = """You are a helpful AI assistant that creates beautifully formatted, professional responses. 
 
-FORMATTING RULES:
-- Use proper markdown formatting for all text
-- For mathematical expressions, ALWAYS use standard markdown math delimiters:
-  - Inline math: $expression$ 
-  - Display math: $$expression$$
+📋 **FORMATTING EXCELLENCE RULES:**
+
+**STRUCTURE & HEADERS:**
+- Start with a clear, descriptive title using # for main topics
+- Use ## for major sections and ### for subsections
+- Create logical information hierarchy with proper nesting
+
+**TEXT FORMATTING:**
+- **Bold** for key concepts, important terms, and section highlights
+- *Italics* for emphasis, definitions, or secondary information
+- `Code formatting` for technical terms, formulas, or specific values
+- Use > blockquotes for important notes or warnings
+
+**LISTS & ORGANIZATION:**
+- Use numbered lists (1. 2. 3.) for sequential steps or ranked items
+- Use bullet points (•) for related items or features
+- Create sub-bullets with proper indentation for detailed breakdowns
+- Add spacing between list sections for readability
+
+**MATHEMATICAL EXPRESSIONS:**
+- Inline math: $expression$ for simple formulas within text
+- Display math: $$expression$$ for complex formulas on separate lines
 - NEVER use brackets [ ] or parentheses ( ) around math expressions
-- NEVER use \\[ \\] LaTeX delimiters
-- Use **bold** for emphasis and *italics* when needed
-- Use numbered lists (1. 2. 3.) and bullet points (- item) properly
-- Use ### for headings when structuring responses
+- Always use proper LaTeX syntax within markdown delimiters
 
-MATH EXAMPLES:
-✅ CORRECT: The formula is $$\\frac{12}{4} = 3$$
-❌ WRONG: The formula is [\\frac{12}{4} = 3]
-❌ WRONG: The formula is (\\frac{12}{4} = 3)
+**VISUAL ENHANCEMENTS:**
+- Use emojis sparingly but effectively (📊 for data, 💡 for insights, ⚠️ for warnings)
+- Create tables using markdown table syntax when presenting structured data
+- Add horizontal rules (---) to separate major sections
+- Use proper spacing between paragraphs and sections
 
-Always format mathematical calculations using proper markdown math syntax with $$ delimiters."""
+**EXAMPLES:**
+✅ EXCELLENT: 
+# Capital Requirements Analysis
+## **Key Components**
+### 📊 Tier 1 Capital
+- **Common Equity Tier 1 (CET1)**: Use proper LaTeX math notation for formulas
+
+❌ POOR: The CET1 ratio is [CET1 Capital / RWA * 100%]
+
+Create responses that are visually appealing, easy to scan, and professionally structured."""
 
 @router.post("/chat")
 async def chat(request: ChatRequest):
@@ -38,22 +59,39 @@ async def chat(request: ChatRequest):
         client = OpenAI(api_key=request.api_key)
         
         async def generate():
-            # Create a streaming chat completion request
-            stream = client.chat.completions.create(
-                model=request.model,
-                messages=[
-                    {"role": "system", "content": request.developer_message},
-                    {"role": "user", "content": request.user_message}
-                ],
-                stream=True
-            )
-            
-            for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
-                    yield f"data: {chunk.choices[0].delta.content}\n\n"
-            yield "data: [DONE]\n\n"
+            try:
+                # Create a non-streaming chat completion request first, then stream the response
+                response = client.chat.completions.create(
+                    model=request.model,
+                    messages=[
+                        {"role": "system", "content": DEVELOPER_MESSAGE},
+                        {"role": "user", "content": request.user_message}
+                    ],
+                    stream=False
+                )
+                
+                # Get the full response content
+                full_response = response.choices[0].message.content or "No response generated"
+                
+                # Stream the response by paragraphs to preserve formatting and ensure proper termination
+                paragraphs = full_response.split('\n\n')
+                
+                for paragraph in paragraphs:
+                    if paragraph.strip():
+                        yield f"{paragraph.strip()}\n\n"
+                        
+            except Exception as e:
+                yield f"Error: {str(e)}\n\n"
         
-        return StreamingResponse(generate(), media_type="text/plain")
+        return StreamingResponse(
+            generate(), 
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # Disable nginx buffering
+            }
+        )
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -86,22 +124,36 @@ async def rag_chat(request: RAGChatRequest):
         async def generate():
             try:
                 # Use RAG pipeline to get response
-                response = rag_pipeline.run_rag(
+                rag_result = rag_pipeline.run(
                     query=request.user_message,
-                    k=4,
-                    system_prompt=DEVELOPER_MESSAGE
+                    k=4
                 )
                 
-                # Stream the response
-                for token in response.split():
-                    yield f"data: {token} \n\n"
-                yield "data: [DONE]\n\n"
+                # Extract the response text from the result dictionary
+                response_text = rag_result.get("response", "No response generated")
+                
+                # Stream the response by paragraphs to preserve formatting structure
+                # Split by double newlines (paragraph breaks) to keep content blocks together
+                paragraphs = response_text.split('\n\n')
+                
+                for paragraph in paragraphs:
+                    if paragraph.strip():
+                        yield f"{paragraph.strip()}\n\n"
+
                 
             except Exception as e:
-                yield f"data: Error: {str(e)}\n\n"
-                yield "data: [DONE]\n\n"
+                yield f"Error: {str(e)}\n\n"
+
         
-        return StreamingResponse(generate(), media_type="text/plain")
+        return StreamingResponse(
+            generate(), 
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # Disable nginx buffering
+            }
+        )
         
     except HTTPException:
         raise
@@ -144,17 +196,27 @@ async def regulatory_rag_chat(request: RegulatoryRAGRequest):
                     priority_sources=request.priority_sources
                 )
                 
-                # Stream the response
+                # Stream the response by paragraphs to preserve formatting structure
                 response_text = response_data.get("response", "No response generated")
-                for token in response_text.split():
-                    yield f"data: {token} \n\n"
-                yield "data: [DONE]\n\n"
+                # Split by double newlines (paragraph breaks) to keep content blocks together
+                paragraphs = response_text.split('\n\n')
+                
+                for paragraph in paragraphs:
+                    if paragraph.strip():
+                        yield f"{paragraph.strip()}\n\n"
                 
             except Exception as e:
-                yield f"data: Error: {str(e)}\n\n"
-                yield "data: [DONE]\n\n"
+                yield f"Error: {str(e)}\n\n"
         
-        return StreamingResponse(generate(), media_type="text/plain")
+        return StreamingResponse(
+            generate(), 
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # Disable nginx buffering
+            }
+        )
         
     except HTTPException:
         raise

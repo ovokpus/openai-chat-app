@@ -16,10 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import modular routers
 from routers import chat_router, documents_router
-from services.global_kb_service import GlobalKnowledgeBaseService
-
-# Initialize services
-global_kb_service = GlobalKnowledgeBaseService()
+from services.dependencies import global_kb_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
