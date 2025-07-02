@@ -13,7 +13,7 @@
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "frontend/dist"
       }
     },
     {
@@ -41,6 +41,10 @@
     {
       "src": "/vite.svg",
       "dest": "/vite.svg"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
     },
     {
       "src": "/(.*)",
