@@ -38,16 +38,16 @@ class GlobalKnowledgeBaseService:
         try:
             print("🚀 Initializing global knowledge base with regulatory documents...")
             
-            # Path to organized knowledge base folder - robust path detection
+            # Path to organized knowledge base folder - robust path detection for bundled files
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            local_path = os.path.join(current_dir, "knowledge_base", "regulatory_docs")
             
-            # Try multiple potential paths for better Vercel compatibility
+            # Try multiple potential paths for better Vercel compatibility with bundled files
             potential_paths = [
-                local_path,  # Local development
-                os.path.join("/var/task", "api", "services", "knowledge_base", "regulatory_docs"),  # Vercel serverless
-                os.path.join(os.getcwd(), "api", "services", "knowledge_base", "regulatory_docs"),  # Vercel alternative
-                os.path.join(os.path.dirname(current_dir), "knowledge_base", "regulatory_docs"),  # Relative fallback
+                os.path.join(current_dir, "knowledge_base", "regulatory_docs"),  # Local development
+                os.path.join(os.path.dirname(current_dir), "services", "knowledge_base", "regulatory_docs"),  # Vercel relative
+                os.path.join("/var/task", "api", "services", "knowledge_base", "regulatory_docs"),  # Vercel absolute
+                os.path.join(os.getcwd(), "api", "services", "knowledge_base", "regulatory_docs"),  # Working directory
+                os.path.join("/tmp", "knowledge_base", "regulatory_docs"),  # Vercel temp location
             ]
             
             knowledge_base_path = None

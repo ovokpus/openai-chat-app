@@ -2,6 +2,18 @@
   "version": 2,
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
+  "builds": [
+    {
+      "src": "api/app.py",
+      "use": "@vercel/python@4.3.0",
+      "config": {
+        "includeFiles": [
+          "api/services/knowledge_base/**/*",
+          "aimakerspace/**/*"
+        ]
+      }
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
