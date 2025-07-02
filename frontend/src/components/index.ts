@@ -8,3 +8,8 @@ export { ApiKeySection } from './ApiKeySection/ApiKeySection'
 export { ChatInterface } from './ChatInterface/ChatInterface'
 export { NotificationBanner } from './NotificationBanner/NotificationBanner'
 export { ConfirmationModal } from './ConfirmationModal/ConfirmationModal'
+
+// New improved components
+export { ErrorBoundary } from './ErrorBoundary/ErrorBoundary'
+export { ChatContainer } from './ChatContainer/ChatContainer'
+export { NotificationManager } from './NotificationManager/NotificationManager'

@@ -1,14 +1,27 @@
-import { KeyIcon, PaperAirplaneIcon, SparklesIcon } from '@heroicons/react/24/solid'
+import React, { useState, useCallback, useMemo, useEffect } from 'react'
+import { KeyIcon, SparklesIcon } from '@heroicons/react/24/solid'
 import { useChat } from './hooks/useChat'
 import { useRAG } from './hooks/useRAG'
 import { useGlobalKnowledgeBase } from './hooks/useGlobalKnowledgeBase'
-import { WelcomeSection, MessageBubble, LoadingIndicator, PDFUpload, DocumentPanel, ConfirmationModal } from './components'
+import { 
+  WelcomeSection, 
+  PDFUpload, 
+  DocumentPanel, 
+  ConfirmationModal,
+  ErrorBoundary,
+  ChatContainer,
+  NotificationManager
+} from './components'
 import { logger } from './utils/logger'
 import 'katex/dist/katex.min.css'
 import './App.css'
-import { useState, useRef, useEffect } from 'react'
 
+// Main App Component with Error Boundary and Performance Optimizations
 function App() {
+  // ===============================
+  // HOOKS AND STATE MANAGEMENT
+  // ===============================
+  
   const {
     messages,
     input,
@@ -23,7 +36,6 @@ function App() {
     setIsLoading
   } = useChat()
 
-  // RAG functionality
   const {
     sessionInfo,
     isUploading,
@@ -37,7 +49,6 @@ function App() {
     validateSession
   } = useRAG()
 
-  // Global Knowledge Base functionality
   const {
     globalKB,
     isReady: globalKBReady,
@@ -47,7 +58,10 @@ function App() {
     isDeleting
   } = useGlobalKnowledgeBase()
 
-  // Local state for RAG mode and UI
+  // ===============================
+  // LOCAL STATE
+  // ===============================
+  
   const [ragMode, setRagMode] = useState(false)
   const [showUploadError, setShowUploadError] = useState(false)
   const [showUploadSuccess, setShowUploadSuccess] = useState(false)
@@ -62,6 +76,30 @@ function App() {
     filename: null
   })
 
+  // ===============================
+  // MEMOIZED VALUES FOR PERFORMANCE
+  // ===============================
+  
+  const hasMessages = useMemo(() => messages.length > 0, [messages.length])
+  
+  const canChat = useMemo(() => {
+    return apiKey && !isLoading
+  }, [apiKey, isLoading])
+
+  const ragStatus = useMemo(() => {
+    if (!ragMode) return 'disabled'
+    if (globalKBReady || hasActiveSession(false)) return 'ready'
+    return 'unavailable'
+  }, [ragMode, globalKBReady, hasActiveSession])
+
+     const hasKnowledgeBase = useMemo(() => {
+     return globalKBReady || hasActiveSession(globalKBReady)
+   }, [globalKBReady, hasActiveSession])
+
+  // ===============================
+  // OPTIMIZED EVENT HANDLERS
+  // ===============================
+  
   // Validate session when component mounts
   useEffect(() => {
     if (sessionInfo) {
@@ -69,8 +107,8 @@ function App() {
     }
   }, [sessionInfo, validateSession])
 
-  // Enhanced submit handler that supports both regular and RAG chat
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Memoized chat submission handler
+  const handleChatSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || !apiKey || isLoading) return
 
@@ -83,32 +121,27 @@ function App() {
     setIsLoading(true)
 
     try {
-      if (ragMode && hasActiveSession(globalKBReady)) {
-        // If user has active session, validate it; otherwise use global KB
-        if (hasActiveSession(false)) { // Check only user session, not global KB
+             if (ragMode && (globalKBReady || hasActiveSession(globalKBReady))) {
+        // Validate session if needed
+                 if (hasActiveSession(globalKBReady)) {
           const isValidSession = await validateSession()
-          if (!isValidSession) {
-            // Fall back to global KB if available
-            if (!globalKBReady) {
-              addMessage({ 
-                role: 'assistant', 
-                content: 'Your session has expired. Please upload a document again to continue using RAG mode.' 
-              })
-              setRagMode(false)
-              setIsLoading(false)
-              return
-            }
+          if (!isValidSession && !globalKBReady) {
+            addMessage({ 
+              role: 'assistant', 
+              content: 'Your session has expired. Please upload a document again to continue using RAG mode.' 
+            })
+            setRagMode(false)
+            setIsLoading(false)
+            return
           }
         }
 
-        // Use RAG chat - stream the response (works with both user docs and global KB)
+        // Use RAG chat with streaming
         const reader = await sendRAGChat(userMessage, apiKey)
         
         if (reader) {
           const decoder = new TextDecoder()
           let assistantMessage = ''
-
-          // Add initial assistant message
           const assistantMsg = { role: 'assistant' as const, content: '' }
           addMessage(assistantMsg)
 
@@ -118,57 +151,41 @@ function App() {
             
             const chunk = decoder.decode(value)
             assistantMessage += chunk
-            
-            // Update the last message (assistant response)
             assistantMsg.content = assistantMessage
           }
         }
       } else {
-        // Use regular chat (useChat handles the streaming internally)
-        try {
-          const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              developer_message: 'You are a helpful assistant.',
-              user_message: userMessage,
-              model: 'gpt-4o-mini',
-              api_key: apiKey
-            }),
-          })
+        // Regular chat
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            developer_message: 'You are a helpful assistant.',
+            user_message: userMessage,
+            model: 'gpt-4o-mini',
+            api_key: apiKey
+          }),
+        })
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-          }
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
 
-          const reader = response.body?.getReader()
-          if (!reader) throw new Error('No reader available')
+        const reader = response.body?.getReader()
+        if (!reader) throw new Error('No reader available')
 
-          const decoder = new TextDecoder()
-          let assistantMessage = ''
+        const decoder = new TextDecoder()
+        let assistantMessage = ''
+        const assistantMsg = { role: 'assistant' as const, content: '' }
+        addMessage(assistantMsg)
 
-          // Add initial assistant message
-          const assistantMsg = { role: 'assistant' as const, content: '' }
-          addMessage(assistantMsg)
-
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            
-            const chunk = decoder.decode(value)
-            assistantMessage += chunk
-            
-            // Update the last message (assistant response)
-            assistantMsg.content = assistantMessage
-          }
-        } catch (error) {
-          logger.error('Regular chat error:', error)
-          addMessage({ 
-            role: 'assistant', 
-            content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}` 
-          })
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          const chunk = decoder.decode(value)
+          assistantMessage += chunk
+          assistantMsg.content = assistantMessage
         }
       }
     } catch (error) {
@@ -180,329 +197,232 @@ function App() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [input, apiKey, isLoading, ragMode, globalKBReady, hasActiveSession, validateSession, sendRAGChat, addMessage, setInput, setIsLoading])
 
-  const handleUploadSuccess = async (response: any) => {
+  // Memoized upload success handler
+  const handleUploadSuccess = useCallback(async (response: any) => {
     logger.debug('Upload successful in App:', response)
-    setRagMode(true) // Auto-enable RAG mode when PDF is uploaded
+    setRagMode(true)
     clearUploadError()
     setShowUploadError(false)
     
-    // Show success message
     setUploadSuccessMessage(`Successfully uploaded "${response.filename}" - added to global knowledge base`)
     setShowUploadSuccess(true)
     
-    // Hide success message after 5 seconds
     setTimeout(() => setShowUploadSuccess(false), 5000)
     
-    // Force refresh both session info and global KB to update the document panel
-    if (response.session_id) {
-      logger.debug('Refreshing session info for:', response.session_id)
-      await refreshSessionInfo(response.session_id)
-    }
+         if (response.session_id) {
+       await refreshSessionInfo(response.session_id)
+     }
     
-    // Immediate refresh of global KB to show the newly uploaded document
-    logger.debug('📤 Document uploaded, refreshing Global KB immediately...')
     await refreshGlobalKB()
-    
-    // Secondary refresh after a short delay to ensure backend processing is complete
-    setTimeout(async () => {
-      logger.debug('🔄 Secondary Global KB refresh after upload processing...')
-      await refreshGlobalKB()
-    }, 2000)
-  }
+  }, [clearUploadError, refreshSessionInfo, refreshGlobalKB])
 
-  const handleUploadError = (error: string) => {
-    logger.error('Upload error:', error)
+  // Memoized upload error handler
+  const handleUploadError = useCallback((error: string) => {
     setShowUploadError(true)
-  }
-
-  const handleClearSession = async () => {
-    await clearSession()
-    setRagMode(false)
     setShowUploadSuccess(false)
-  }
+  }, [])
 
-  const toggleRagMode = () => {
-    if (hasActiveSession(globalKBReady)) {
-      setRagMode(!ragMode)
-    }
-  }
+  // Memoized RAG mode toggle
+  const toggleRagMode = useCallback(() => {
+    setRagMode(prev => !prev)
+  }, [])
 
-  const handleTryGlobalKB = () => {
+  // Memoized global KB try handler
+  const handleTryGlobalKB = useCallback(() => {
     if (globalKBReady) {
       setRagMode(true)
-      setInput("What are the Basel III minimum capital requirements for CET1 ratio?")
     }
-  }
+  }, [globalKBReady])
 
-  // Modal handlers for document deletion
-  const handleDeleteDocumentRequest = (filename: string) => {
-    if (!apiKey) {
-      alert('API key is required to delete documents')
-      return
-    }
-
+  // Memoized delete document handlers
+  const handleDeleteDocumentRequest = useCallback((filename: string) => {
     setDeleteModalState({
       isOpen: true,
       filename
     })
-  }
+  }, [])
 
-  const handleConfirmDelete = async () => {
-    if (!deleteModalState.filename || !apiKey) return
+  const handleConfirmDelete = useCallback(async () => {
+    const { filename } = deleteModalState
+    if (!filename) return
 
-    logger.debug(`🗑️ Starting deletion of "${deleteModalState.filename}"...`)
-    const success = await deleteUserDocument(deleteModalState.filename, apiKey)
-    
-    // Close modal
-    setDeleteModalState({
-      isOpen: false,
-      filename: null
-    })
-
-    if (success) {
-      logger.debug(`✅ Document "${deleteModalState.filename}" deleted successfully`)
+    try {
+      logger.debug(`Deleting document: ${filename}`)
+      setDeleteModalState({ isOpen: false, filename: null })
       
-      // Refresh both session info and global KB immediately
-      if (sessionInfo?.session_id) {
-        logger.debug('Refreshing session info after deletion...')
-        await refreshSessionInfo(sessionInfo.session_id)
-      }
+      await deleteUserDocument(filename)
       
-      // Global KB refresh is already handled in deleteUserDocument,
-      // but we'll do an additional refresh to ensure UI is up to date
-      logger.debug('🔄 Additional Global KB refresh after deletion...')
-      await refreshGlobalKB()
+      logger.debug('Document deleted successfully, refreshing data...')
+      await Promise.all([
+        refreshSessionInfo(sessionInfo?.session_id),
+        refreshGlobalKB()
+      ])
       
-      // Final refresh after a short delay to ensure complete synchronization
-      setTimeout(async () => {
-        logger.debug('🔄 Final Global KB refresh to ensure synchronization...')
-        await refreshGlobalKB()
-      }, 1500)
-    } else {
-      logger.error(`❌ Failed to delete document "${deleteModalState.filename}"`)
+    } catch (error) {
+      logger.error('Error in delete confirmation:', error)
     }
-  }
+  }, [deleteModalState, deleteUserDocument, refreshSessionInfo, refreshGlobalKB])
 
-  const handleCancelDelete = () => {
-    setDeleteModalState({
-      isOpen: false,
-      filename: null
-    })
-  }
+  const handleCancelDelete = useCallback(() => {
+    setDeleteModalState({ isOpen: false, filename: null })
+  }, [])
 
+  // Memoized notification handlers
+  const handleCloseSuccessNotification = useCallback(() => {
+    setShowUploadSuccess(false)
+  }, [])
+
+  const handleCloseErrorNotification = useCallback(() => {
+    setShowUploadError(false)
+  }, [])
+
+  // ===============================
+  // MEMOIZED NOTIFICATION CONFIG
+  // ===============================
+  
+  const notificationConfig = useMemo(() => ({
+    successNotification: showUploadSuccess ? {
+      message: uploadSuccessMessage,
+      isVisible: showUploadSuccess,
+      onClose: handleCloseSuccessNotification
+    } : undefined,
+    errorNotification: showUploadError ? {
+      message: uploadError || 'Upload failed',
+      isVisible: showUploadError,
+      onClose: handleCloseErrorNotification
+    } : undefined
+  }), [showUploadSuccess, uploadSuccessMessage, showUploadError, uploadError, handleCloseSuccessNotification, handleCloseErrorNotification])
+
+  // ===============================
+  // RENDER
+  // ===============================
+  
   return (
-    <div className="app">
-      {/* Header */}
-      <header className="header">
-        <div className="header-container">
-          <div className="header-left">
-            <h1 className="header-title">OpenAI Chat</h1>
-            {hasActiveSession(globalKBReady) && (
-              <div className="rag-toggle">
-                <button
-                  onClick={toggleRagMode}
-                  className={`rag-toggle-button ${ragMode ? 'active' : ''}`}
-                  title={ragMode ? 'Disable RAG mode' : 'Enable RAG mode'}
-                >
-                  <SparklesIcon className="rag-toggle-icon" />
-                  {ragMode ? 'RAG ON' : 'RAG OFF'}
-                </button>
-              </div>
+    <ErrorBoundary>
+      <div className="app">
+        {/* Header Section */}
+        <header className="app-header">
+          <h1 className="app-title">
+            <SparklesIcon className="title-icon" />
+            AI Chat Assistant
+          </h1>
+          
+          <div className="header-controls">
+            {/* RAG Mode Toggle */}
+            {hasKnowledgeBase && (
+              <button
+                onClick={toggleRagMode}
+                className={`rag-toggle ${ragMode ? 'active' : ''}`}
+                title={ragMode ? 'Disable RAG mode' : 'Enable RAG mode'}
+              >
+                <SparklesIcon className="toggle-icon" />
+                RAG Mode
+              </button>
             )}
-          </div>
-          <div>
+            
+            {/* API Key Toggle */}
             <button
               onClick={() => setShowApiKey(!showApiKey)}
-              className="api-key-button"
+              className="api-key-toggle"
+              title="Configure API Key"
             >
-              <KeyIcon className="api-key-icon" />
-              <span className="hidden-mobile">API Key</span>
+              <KeyIcon className="toggle-icon" />
+              API Key
             </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* API Key Input Section */}
-      {showApiKey && (
-        <div className="api-key-section">
-          <div className="api-key-form">
-            <label className="api-key-label">
-              OpenAI API Key:
-            </label>
-            <input
-              type="password"
-              placeholder="sk-..."
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="api-key-input"
-            />
-            <button
-              onClick={() => setShowApiKey(false)}
-              className="done-button"
-            >
-              Done
-            </button>
+        {/* API Key Configuration */}
+        {showApiKey && (
+          <div className="api-key-section">
+            <div className="api-key-content">
+              <input
+                type="password"
+                value={apiKey || ''}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter your OpenAI API key..."
+                className="api-key-input"
+              />
+              <button
+                onClick={() => setShowApiKey(false)}
+                className="api-key-done"
+              >
+                Done
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Upload Success Display */}
-      {showUploadSuccess && (
-        <div className="success-banner">
-          <div className="success-content">
-            <span>✅ {uploadSuccessMessage}</span>
-            <button
-              onClick={() => setShowUploadSuccess(false)}
-              className="success-close"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Upload Error Display */}
-      {showUploadError && uploadError && (
-        <div className="error-banner">
-          <div className="error-content">
-            <span>❌ {uploadError}</span>
-            <button
-              onClick={() => setShowUploadError(false)}
-              className="error-close"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main Chat Container */}
-      <main className="main-container">
-        <div className="layout-container">
-          
-          {/* Sidebar for PDF Upload and Document Management */}
-          {apiKey && (
-            <div className="sidebar">
+        {/* Main Content Area */}
+        <div className="app-content">
+          {/* Sidebar */}
+          <aside className="app-sidebar">
+            {/* Upload Section */}
+            <div className="upload-section">
               <PDFUpload
-                apiKey={apiKey}
-                sessionId={sessionInfo?.session_id}
                 onUploadSuccess={handleUploadSuccess}
                 onUploadError={handleUploadError}
                 disabled={isUploading}
+                apiKey={apiKey}
               />
-              
+            </div>
+
+            {/* Document Panel */}
+            <div className="document-section">
               <DocumentPanel
                 apiKey={apiKey}
-                onRefresh={async () => {
-                  // Refresh both session info and global KB when documents change
-                  logger.debug('🔄 DocumentPanel manual refresh triggered')
-                  if (sessionInfo?.session_id) {
-                    logger.debug('Refreshing session info...')
-                    await refreshSessionInfo(sessionInfo.session_id)
-                  }
-                  // Always refresh global KB since that's what DocumentPanel displays
-                  logger.debug('Refreshing Global KB from DocumentPanel...')
-                  await refreshGlobalKB()
-                }}
+                onRefresh={refreshGlobalKB}
                 onDeleteDocument={handleDeleteDocumentRequest}
               />
             </div>
-          )}
+          </aside>
 
-          {/* Chat Container */}
-          <div className="chat-container">
-            {/* Messages Area */}
-            <div className="messages-area">
-              {messages.length === 0 && (
-                <WelcomeSection 
-                  apiKey={apiKey} 
-                  onEnterApiKey={() => setShowApiKey(true)}
-                  hasRAG={hasActiveSession(globalKBReady)}
-                  ragMode={ragMode}
-                  globalKB={globalKB}
-                  onTryGlobalKB={handleTryGlobalKB}
-                />
-              )}
-              
-              {messages.map((message, index) => (
-                <MessageBubble 
-                  key={index} 
-                  message={message} 
-                  index={index} 
-                />
-              ))}
-              
-              {isLoading && <LoadingIndicator />}
-              
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input Area */}
-            <div className="input-area">
-              {ragMode && hasActiveSession(globalKBReady) && (
-                <div className="rag-indicator-input">
-                  <SparklesIcon className="rag-input-icon" />
-                  <span>
-                    {hasActiveSession(false) 
-                      ? 'RAG mode active - asking your documents' 
-                      : 'RAG mode active - asking regulatory knowledge base'}
-                  </span>
-                </div>
-              )}
-              
-              <form onSubmit={handleSubmit} className="input-form">
-                <div className="input-wrapper">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder={ragMode && hasActiveSession(globalKBReady)
-                      ? hasActiveSession(false) 
-                        ? "Ask a question about your uploaded documents..." 
-                        : "Ask about Basel III, COREP, FINREP, or regulatory reporting..."
-                      : "Type your message..."}
-                    className="message-input"
-                    disabled={isLoading || !apiKey}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={isLoading || !apiKey || !input.trim()}
-                  className="send-button"
-                >
-                  <PaperAirplaneIcon className="send-icon" />
-                  <span className="hidden-mobile">
-                    {isLoading ? 'Sending...' : 'Send'}
-                  </span>
-                </button>
-              </form>
-              
-              {!apiKey && (
-                <p className="help-text">
-                  Please enter your OpenAI API key to start chatting
-                </p>
-              )}
-            </div>
-          </div>
+          {/* Chat Area */}
+          <main className="app-main">
+            {hasMessages || apiKey ? (
+              <ChatContainer
+                messages={messages}
+                input={input}
+                setInput={setInput}
+                isLoading={isLoading}
+                apiKey={apiKey}
+                ragMode={ragMode}
+                onSubmit={handleChatSubmit}
+                messagesEndRef={messagesEndRef}
+                globalKBReady={globalKBReady}
+                                 hasActiveSession={hasActiveSession(globalKBReady)}
+              />
+            ) : (
+                             <WelcomeSection
+                 apiKey={apiKey}
+                 onEnterApiKey={() => setShowApiKey(true)}
+                 onTryGlobalKB={handleTryGlobalKB}
+               />
+            )}
+          </main>
         </div>
-      </main>
 
-      {/* Confirmation Modal for Document Deletion */}
-      <ConfirmationModal
-        isOpen={deleteModalState.isOpen}
-        title="Delete Document"
-        message={`Are you sure you want to delete "${deleteModalState.filename}"? This action cannot be undone and will remove the document from the global knowledge base for everyone.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={handleConfirmDelete}
-        onCancel={handleCancelDelete}
-        type="danger"
-        isLoading={isDeleting === deleteModalState.filename}
-      />
-    </div>
+        {/* Notifications */}
+        <NotificationManager {...notificationConfig} />
+
+        {/* Confirmation Modal */}
+        {deleteModalState.isOpen && (
+          <ConfirmationModal
+            isOpen={deleteModalState.isOpen}
+            title="Delete Document"
+            message={`Are you sure you want to delete "${deleteModalState.filename}"? This action cannot be undone.`}
+            confirmText="Delete"
+            cancelText="Cancel"
+            onConfirm={handleConfirmDelete}
+            onCancel={handleCancelDelete}
+            isLoading={isDeleting === deleteModalState.filename}
+          />
+        )}
+      </div>
+    </ErrorBoundary>
   )
 }
 
-export default App
+export default App 
