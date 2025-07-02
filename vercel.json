@@ -10,11 +10,8 @@
       }
     },
     {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+      "src": "frontend/dist/**",
+      "use": "@vercel/static"
     },
     {
       "src": "documents/**/*",
@@ -24,31 +21,27 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/app.py"
+      "dest": "api/app.py"
     },
     {
       "src": "/documents/(.*)",
-      "dest": "/documents/$1"
+      "dest": "documents/$1"
     },
     {
       "src": "/assets/(.*)",
-      "dest": "/assets/$1"
+      "dest": "frontend/dist/assets/$1"
     },
     {
       "src": "/fonts/(.*)",
-      "dest": "/fonts/$1"
+      "dest": "frontend/dist/fonts/$1"
     },
     {
       "src": "/vite.svg",
-      "dest": "/vite.svg"
-    },
-    {
-      "src": "/",
-      "dest": "/index.html"
+      "dest": "frontend/dist/vite.svg"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "frontend/dist /index.html"
     }
   ]
 }
