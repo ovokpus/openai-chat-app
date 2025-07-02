@@ -3,7 +3,6 @@ import sys
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
-import json
 
 # Add parent directory to Python path for aimakerspace imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -14,6 +13,9 @@ from aimakerspace.openai_utils.embedding import EmbeddingModel
 from aimakerspace.openai_utils.chatmodel import ChatOpenAI
 from aimakerspace.rag_pipeline import RAGPipeline
 from aimakerspace.regulatory_rag_enhancer import RegulatoryRAGEnhancer
+
+# Import our knowledge base data
+from .knowledge_base_data import get_knowledge_base
 
 class GlobalKnowledgeBaseService:
     def __init__(self):
@@ -31,43 +33,18 @@ class GlobalKnowledgeBaseService:
         }
     
     async def initialize_global_knowledge_base(self):
-        """Initialize the global knowledge base from preprocessed JSON file"""
+        """Initialize the global knowledge base from embedded data"""
         if self.global_knowledge_base["initialized"]:
             print("📚 Global knowledge base already initialized")
             return
         
         try:
-            print("🚀 Initializing global knowledge base from preprocessed data...")
+            print("🚀 Initializing global knowledge base...")
             
-            # Try to load preprocessed knowledge base JSON file
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            preprocessed_file_paths = [
-                os.path.join(current_dir, "preprocessed_knowledge_base.json"),  # Same directory
-                os.path.join(os.path.dirname(current_dir), "services", "preprocessed_knowledge_base.json"),  # Vercel
-                os.path.join("/var/task", "api", "services", "preprocessed_knowledge_base.json"),  # Vercel absolute
-                os.path.join(os.getcwd(), "api", "services", "preprocessed_knowledge_base.json"),  # Working dir
-            ]
+            # Load data from our Python module
+            preprocessed_data = get_knowledge_base()
             
-            preprocessed_data = None
-            for file_path in preprocessed_file_paths:
-                print(f"🔍 Checking for preprocessed file: {file_path}")
-                if os.path.exists(file_path):
-                    print(f"✅ Found preprocessed knowledge base at: {file_path}")
-                    try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            preprocessed_data = json.load(f)
-                        break
-                    except Exception as e:
-                        print(f"❌ Failed to load preprocessed file {file_path}: {e}")
-                        continue
-            
-            if not preprocessed_data:
-                print("📂 No preprocessed knowledge base found, falling back to document processing...")
-                # Fall back to processing documents from the original folders
-                await self._fallback_to_document_processing()
-                return
-            
-            # Load from preprocessed data
+            # Load the data
             await self._load_from_preprocessed_data(preprocessed_data)
             
         except Exception as e:
