@@ -221,7 +221,7 @@ export const removeDocumentFromKnowledgeBase = async (filename: string, apiKey: 
   logger.debug('Attempting to remove document from knowledge base', { filename })
   
   const deleteResponse = await fetch(
-    `/api/document/${encodeURIComponent(filename)}?api_key=${encodeURIComponent(apiKey)}`, 
+    `/api/documents/${encodeURIComponent(filename)}?api_key=${encodeURIComponent(apiKey)}`, 
     {
       method: 'DELETE'
     }

@@ -381,6 +381,29 @@ class GlobalKnowledgeBaseService:
         try:
             print(f"🗑️ Removing {filename} from global knowledge base...")
             
+            # First, remove the physical file from uploaded_docs folder
+            try:
+                uploaded_docs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "knowledge_base", "uploaded_docs")
+                if os.path.exists(uploaded_docs_path):
+                    # Find the timestamped file that corresponds to this filename
+                    # Files are saved with format: {timestamp}_{original_filename}
+                    base_name = os.path.splitext(filename)[0]
+                    file_ext = os.path.splitext(filename)[1]
+                    
+                    for file in os.listdir(uploaded_docs_path):
+                        # Check if this file matches the pattern and original filename
+                        if file.endswith(f"_{base_name}{file_ext}") and file.startswith("20"):
+                            file_path = os.path.join(uploaded_docs_path, file)
+                            os.remove(file_path)
+                            print(f"🗂️ Deleted physical file: uploaded_docs/{file}")
+                            break
+                    else:
+                        print(f"⚠️ Physical file for {filename} not found in uploaded_docs folder")
+                else:
+                    print(f"⚠️ uploaded_docs folder not found: {uploaded_docs_path}")
+            except Exception as e:
+                print(f"⚠️ Could not delete physical file for {filename}: {e} (continuing with vector database cleanup)")
+            
             # Get current global knowledge base
             global_kb = await self.get_global_knowledge_base(api_key)
             if not global_kb:

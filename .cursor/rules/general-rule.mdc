@@ -12,3 +12,4 @@ alwaysApply: true
 
 - You always prefer to use branch development. Before writing any code - you create a feature branch to hold those changes. 
 - After you are done - provide instructions in a "MERGE.md" file that explains how to merge the changes back to main with both a GitHub PR route and a GitHub CLI route.
+- Ensure you empty the folder api/services/knowledge_base/ before every deployment to vercel
