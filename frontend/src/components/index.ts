@@ -1,3 +1,5 @@
 export { WelcomeSection } from './WelcomeSection/WelcomeSection'
 export { MessageBubble } from './MessageBubble/MessageBubble'
-export { LoadingIndicator } from './LoadingIndicator/LoadingIndicator' 
+export { LoadingIndicator } from './LoadingIndicator/LoadingIndicator'
+export { PDFUpload } from './PDFUpload/PDFUpload'
+export { DocumentPanel } from './DocumentPanel/DocumentPanel' 

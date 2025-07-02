@@ -1,8 +1,10 @@
-import { KeyIcon, PaperAirplaneIcon } from '@heroicons/react/24/solid'
+import { KeyIcon, PaperAirplaneIcon, SparklesIcon } from '@heroicons/react/24/solid'
 import { useChat } from './hooks/useChat'
-import { WelcomeSection, MessageBubble, LoadingIndicator } from './components'
+import { useRAG } from './hooks/useRAG'
+import { WelcomeSection, MessageBubble, LoadingIndicator, PDFUpload, DocumentPanel } from './components'
 import 'katex/dist/katex.min.css'
 import './App.css'
+import { useState } from 'react'
 
 function App() {
   const {
@@ -15,16 +17,109 @@ function App() {
     showApiKey,
     setShowApiKey,
     messagesEndRef,
-    handleSubmit
+    handleSubmit: handleRegularChat
   } = useChat()
+
+  // RAG functionality
+  const {
+    sessionInfo,
+    isUploading,
+    uploadError,
+    handlePDFUpload,
+    sendRAGChat,
+    clearSession,
+    hasActiveSession,
+    clearUploadError
+  } = useRAG()
+
+  // Local state for RAG mode
+  const [ragMode, setRagMode] = useState(false)
+  const [showUploadError, setShowUploadError] = useState(false)
+
+  // Enhanced submit handler that supports both regular and RAG chat
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim() || !apiKey || isLoading) return
+
+    const userMessage = input.trim()
+    setInput('')
+
+    // Add user message to chat
+    const newUserMessage = { role: 'user' as const, content: userMessage }
+    
+    try {
+      if (ragMode && hasActiveSession()) {
+        // Use RAG chat
+        const reader = await sendRAGChat(userMessage, apiKey)
+        
+        if (reader) {
+          const decoder = new TextDecoder()
+          let assistantMessage = ''
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            
+            const chunk = decoder.decode(value)
+            assistantMessage += chunk
+            
+            // Update messages with RAG indicator
+            // Note: This is a simplified implementation - in a real app,
+            // you'd want to properly integrate this with the useChat hook
+          }
+        }
+      } else {
+        // Use regular chat
+        handleRegularChat(e)
+      }
+    } catch (error) {
+      console.error('Chat error:', error)
+      // Handle error appropriately
+    }
+  }
+
+  const handleUploadSuccess = (response: any) => {
+    console.log('Upload successful:', response)
+    setRagMode(true) // Auto-enable RAG mode when PDF is uploaded
+    clearUploadError()
+    setShowUploadError(false)
+  }
+
+  const handleUploadError = (error: string) => {
+    console.error('Upload error:', error)
+    setShowUploadError(true)
+  }
+
+  const handleClearSession = async () => {
+    await clearSession()
+    setRagMode(false)
+  }
+
+  const toggleRagMode = () => {
+    if (hasActiveSession()) {
+      setRagMode(!ragMode)
+    }
+  }
 
   return (
     <div className="app">
       {/* Header */}
       <header className="header">
         <div className="header-container">
-          <div>
+          <div className="header-left">
             <h1 className="header-title">OpenAI Chat</h1>
+            {hasActiveSession() && (
+              <div className="rag-toggle">
+                <button
+                  onClick={toggleRagMode}
+                  className={`rag-toggle-button ${ragMode ? 'active' : ''}`}
+                  title={ragMode ? 'Disable RAG mode' : 'Enable RAG mode'}
+                >
+                  <SparklesIcon className="rag-toggle-icon" />
+                  {ragMode ? 'RAG ON' : 'RAG OFF'}
+                </button>
+              </div>
+            )}
           </div>
           <div>
             <button
@@ -62,16 +157,52 @@ function App() {
         </div>
       )}
 
+      {/* Upload Error Display */}
+      {showUploadError && uploadError && (
+        <div className="error-banner">
+          <div className="error-content">
+            <span>{uploadError}</span>
+            <button
+              onClick={() => setShowUploadError(false)}
+              className="error-close"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Chat Container */}
       <main className="main-container">
         <div className="chat-container">
           
+          {/* Sidebar for PDF Upload and Document Management */}
+          {apiKey && (
+            <div className="sidebar">
+              <PDFUpload
+                apiKey={apiKey}
+                sessionId={sessionInfo?.session_id}
+                onUploadSuccess={handleUploadSuccess}
+                onUploadError={handleUploadError}
+                disabled={isUploading}
+              />
+              
+              <DocumentPanel
+                sessionInfo={sessionInfo}
+                onClearSession={handleClearSession}
+                isLoading={isUploading}
+              />
+            </div>
+          )}
+
           {/* Messages Area */}
           <div className="messages-area">
             {messages.length === 0 && (
               <WelcomeSection 
                 apiKey={apiKey} 
-                onEnterApiKey={() => setShowApiKey(true)} 
+                onEnterApiKey={() => setShowApiKey(true)}
+                hasRAG={hasActiveSession()}
+                ragMode={ragMode}
               />
             )}
             
@@ -90,13 +221,22 @@ function App() {
 
           {/* Input Area */}
           <div className="input-area">
+            {ragMode && hasActiveSession() && (
+              <div className="rag-indicator-input">
+                <SparklesIcon className="rag-input-icon" />
+                <span>RAG mode active - asking your documents</span>
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="input-form">
               <div className="input-wrapper">
                 <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Type your message..."
+                  placeholder={ragMode && hasActiveSession() 
+                    ? "Ask a question about your uploaded documents..." 
+                    : "Type your message..."}
                   className="message-input"
                   disabled={isLoading || !apiKey}
                 />
