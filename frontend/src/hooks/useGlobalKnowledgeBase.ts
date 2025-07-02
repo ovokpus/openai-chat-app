@@ -10,9 +10,17 @@ export const useGlobalKnowledgeBase = () => {
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false)
   const prevDocumentCount = useRef<number | null>(null)
   const lastRefreshTime = useRef<number>(0)
+  const requestInProgress = useRef<boolean>(false)
 
   const fetchGlobalKB = async (silent: boolean = false) => {
+    // Prevent multiple concurrent requests
+    if (requestInProgress.current) {
+      console.log('🔄 Request already in progress, skipping...')
+      return
+    }
+
     try {
+      requestInProgress.current = true
       if (!silent) {
         setIsLoading(true)
       } else {
@@ -41,6 +49,7 @@ export const useGlobalKnowledgeBase = () => {
       console.error('❌ Error fetching global knowledge base:', errorMessage)
       setError(errorMessage)
     } finally {
+      requestInProgress.current = false
       if (!silent) {
         setIsLoading(false)
       } else {
@@ -86,22 +95,30 @@ export const useGlobalKnowledgeBase = () => {
     }
   }
 
-  // Enhanced polling for automatic updates
+  // FIXED: Much less aggressive polling to prevent timeout errors
   useEffect(() => {
     fetchGlobalKB()
     
-    // More aggressive polling for better responsiveness
+    // Reduced polling frequency to prevent overwhelming the backend
     const interval = setInterval(() => {
+      // Skip if request already in progress
+      if (requestInProgress.current) {
+        console.log('⏭️ Skipping poll - request in progress')
+        return
+      }
+
       const timeSinceLastRefresh = Date.now() - lastRefreshTime.current
       
       if (!globalKB || globalKB.status !== 'ready') {
-        // Poll every 2 seconds if not ready
-        fetchGlobalKB(true)
-      } else if (timeSinceLastRefresh > 5000) {
-        // Poll every 5 seconds when ready to catch external changes
+        // Poll every 10 seconds if not ready (reduced from 2 seconds)
+        if (timeSinceLastRefresh > 10000) {
+          fetchGlobalKB(true)
+        }
+      } else if (timeSinceLastRefresh > 30000) {
+        // Poll every 30 seconds when ready (reduced from 5 seconds)
         fetchGlobalKB(true)
       }
-    }, 1000) // Check every second for more responsiveness
+    }, 10000) // Check every 10 seconds (reduced from 1 second)
 
     return () => clearInterval(interval)
   }, [globalKB?.status])

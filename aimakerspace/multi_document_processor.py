@@ -28,6 +28,13 @@ try:
 except ImportError:
     PDF_AVAILABLE = False
 
+# Import text splitting for additional chunking
+try:
+    from .text_utils import CharacterTextSplitter
+    TEXT_SPLITTING_AVAILABLE = True
+except ImportError:
+    TEXT_SPLITTING_AVAILABLE = False
+
 # Optional imports for new document types
 try:
     import openpyxl
@@ -80,8 +87,22 @@ class MultiDocumentProcessor:
     modifying or replacing them.
     """
     
-    def __init__(self):
-        """Initialize the multi-document processor"""
+    def __init__(self, enable_text_chunking: bool = False, chunk_size: int = 1000):
+        """
+        Initialize the multi-document processor
+        
+        Args:
+            enable_text_chunking: Whether to apply additional text splitting to large content
+            chunk_size: Maximum character size for text chunks (only used if enable_text_chunking=True)
+        """
+        self.enable_text_chunking = enable_text_chunking
+        self.chunk_size = chunk_size
+        
+        if enable_text_chunking and TEXT_SPLITTING_AVAILABLE:
+            self.text_splitter = CharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_size//5)
+        else:
+            self.text_splitter = None
+            
         self.supported_extensions = {
             '.pdf': 'PDF Documents',
             '.xlsx': 'Excel Spreadsheets',
@@ -120,20 +141,77 @@ class MultiDocumentProcessor:
         """
         file_ext = Path(filename).suffix.lower()
         
+        # Get initial processed documents
         if file_ext == '.pdf':
-            return self._process_pdf(file_path, filename)
+            processed_docs = self._process_pdf(file_path, filename)
         elif file_ext in ['.xlsx', '.xls']:
-            return self._process_excel(file_path, filename)
+            processed_docs = self._process_excel(file_path, filename)
         elif file_ext == '.docx':
-            return self._process_word(file_path, filename)
+            processed_docs = self._process_word(file_path, filename)
         elif file_ext in ['.pptx', '.ppt']:
-            return self._process_powerpoint(file_path, filename)
+            processed_docs = self._process_powerpoint(file_path, filename)
         elif file_ext == '.csv':
-            return self._process_csv(file_path, filename)
+            processed_docs = self._process_csv(file_path, filename)
         elif file_ext in ['.sql', '.py', '.js', '.ts', '.md', '.txt']:
-            return self._process_code(file_path, filename)
+            processed_docs = self._process_code(file_path, filename)
         else:
             raise ValueError(f"Unsupported file type: {file_ext}")
+        
+        # Apply additional text chunking if enabled and content is large
+        if self.enable_text_chunking and self.text_splitter:
+            processed_docs = self._apply_text_chunking(processed_docs)
+            
+        return processed_docs
+    
+    def _apply_text_chunking(self, processed_docs: List[ProcessedDocument]) -> List[ProcessedDocument]:
+        """
+        Apply additional text chunking to large ProcessedDocument objects.
+        
+        Args:
+            processed_docs: List of ProcessedDocument objects to potentially split
+            
+        Returns:
+            List of ProcessedDocument objects with large content split into smaller chunks
+        """
+        if not self.text_splitter:
+            return processed_docs
+            
+        final_chunks = []
+        
+        for doc in processed_docs:
+            # Only split if content is larger than chunk size
+            if len(doc.content) <= self.chunk_size:
+                final_chunks.append(doc)
+                continue
+                
+            # Split the content into smaller text chunks
+            text_chunks = self.text_splitter.split(doc.content)
+            
+            # Create new ProcessedDocument objects for each chunk
+            for i, chunk_text in enumerate(text_chunks):
+                if chunk_text.strip():  # Only add non-empty chunks
+                    # Copy metadata and add chunk info
+                    chunk_metadata = doc.metadata.copy()
+                    chunk_metadata.update({
+                        "chunk_index": i,
+                        "total_chunks": len(text_chunks),
+                        "original_length": len(doc.content),
+                        "chunk_length": len(chunk_text)
+                    })
+                    
+                    # Create new source location with chunk info
+                    chunk_source_location = f"{doc.source_location} (Part {i+1}/{len(text_chunks)})"
+                    
+                    chunk_doc = ProcessedDocument(
+                        content=chunk_text,
+                        metadata=chunk_metadata,
+                        doc_type=doc.doc_type,
+                        source_location=chunk_source_location
+                    )
+                    final_chunks.append(chunk_doc)
+        
+        print(f"📝 Text chunking: {len(processed_docs)} documents → {len(final_chunks)} chunks")
+        return final_chunks
     
     def _process_pdf(self, file_path: str, filename: str) -> List[ProcessedDocument]:
         """Process PDF files using existing functionality"""

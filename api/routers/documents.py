@@ -8,9 +8,6 @@ from fastapi.responses import JSONResponse
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from aimakerspace.multi_document_processor import MultiDocumentProcessor
-from aimakerspace.openai_utils.embedding import EmbeddingModel
-from aimakerspace.openai_utils.chatmodel import ChatOpenAI
-from aimakerspace.rag_pipeline import RAGPipeline
 from models.responses import UploadResponse, MultiDocumentUploadResponse
 
 router = APIRouter()
@@ -47,7 +44,7 @@ async def upload_document_to_knowledge_base(
                 temp_file_path = temp_file.name
             
             # Process the document
-            multi_doc_processor = MultiDocumentProcessor()
+            multi_doc_processor = MultiDocumentProcessor(enable_text_chunking=True, chunk_size=800)
             processed_docs = multi_doc_processor.process_document(temp_file_path, file.filename)
             
             if not processed_docs:
@@ -115,7 +112,7 @@ async def upload_multi_format_document(
                 temp_file_path = temp_file.name
             
             # Process the document with enhanced processing
-            multi_doc_processor = MultiDocumentProcessor()
+            multi_doc_processor = MultiDocumentProcessor(enable_text_chunking=True, chunk_size=800)
             processed_docs = multi_doc_processor.process_document(temp_file_path, file.filename)
             
             if not processed_docs:

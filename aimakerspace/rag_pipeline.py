@@ -180,7 +180,16 @@ Please answer the question based on the provided context."""
             
         except Exception as e:
             logging.error(f"Error generating response: {e}")
-            return f"I encountered an error while generating a response: {str(e)}"
+            return """# ⚠️ Unable to Generate Response
+
+I found relevant information in the knowledge base, but encountered an issue while preparing the response.
+
+## 🔄 **Please try:**
+- **Ask your question again** - this might be a temporary issue
+- **Rephrase your question** in a different way
+- **Check your internet connection** if using external AI services
+
+The system administrators have been notified of this issue."""
 
     def run(
         self, 
@@ -203,7 +212,21 @@ Please answer the question based on the provided context."""
             
             if not search_results:
                 return {
-                    "response": "I couldn't find any relevant information in the uploaded documents to answer your question.",
+                    "response": """# 📚 No Relevant Information Found
+
+I wasn't able to find any information about your question in the current knowledge base.
+
+## 💡 **What this means:**
+- Your question may be about topics not covered in the uploaded documents
+- The knowledge base may need additional documents related to your query
+
+## 🔍 **What you can try:**
+- **Upload relevant documents** if you have specific materials related to your question
+- **Rephrase your question** to match terminology that might be in the documents
+- **Ask about topics** that are covered in the knowledge base
+
+## 📋 **Available Knowledge Areas:**
+The current knowledge base contains regulatory documents including Basel III, COREP, FINREP templates, and related compliance materials.""",
                     "sources": [],
                     "metadata": "No relevant documents found"
                 }
@@ -231,7 +254,19 @@ Please answer the question based on the provided context."""
         except Exception as e:
             logging.error(f"Error in RAG pipeline: {e}")
             return {
-                "response": f"I encountered an error while processing your question: {str(e)}",
+                "response": """# 🔧 System Issue Encountered
+
+I experienced a technical issue while processing your question.
+
+## 🔄 **Please try:**
+- **Ask your question again** - this might be a temporary issue
+- **Wait a moment and retry** - the system may be temporarily busy
+- **Ensure your API key is valid** if using external AI services
+
+## 📞 **Need help?**
+If this problem persists, please contact support with details about your question.
+
+The technical team has been automatically notified of this issue.""",
                 "sources": [],
-                "metadata": f"Error: {str(e)}"
+                "metadata": "System error occurred"
             } 

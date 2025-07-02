@@ -201,6 +201,12 @@ export const useRAG = () => {
     const activeSessionId = sessionId || sessionInfo?.session_id
     if (!activeSessionId) return false
     
+    // Skip validation for temporary sessions - they don't exist in the backend
+    if (activeSessionId.startsWith('temp-')) {
+      logger.debug('Skipping validation for temporary session:', activeSessionId)
+      return true // Temporary sessions are always "valid" for global KB access
+    }
+    
     try {
       await getSessionInfo(activeSessionId)
       return true

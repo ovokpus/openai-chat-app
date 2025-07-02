@@ -405,9 +405,31 @@ class RegulatoryRAGEnhancer:
             
             if not search_results:
                 return {
-                    "response": "I couldn't find relevant regulatory documents to answer your question. Please ensure you have uploaded the appropriate regulatory templates, frameworks, or documentation.",
+                    "response": """# 📋 No Regulatory Information Found
+
+I wasn't able to find information about your regulatory question in the current knowledge base.
+
+## 🏦 **Available Regulatory Documents:**
+The knowledge base contains:
+- **Basel III** frameworks and implementation guides
+- **COREP** (Common Reporting) templates and calculations
+- **FINREP** (Financial Reporting) IFRS templates and guidance
+- **EBA Guidelines** and technical standards
+- **Regulatory mapping** and data lineage documentation
+
+## 💡 **Suggestions:**
+- **Check if your question relates to these areas** - try using specific regulatory terminology
+- **Upload additional documents** if you need coverage of other regulatory frameworks
+- **Rephrase your question** using terms like "capital requirements", "liquidity ratios", "reporting templates"
+
+## 🔍 **Example Questions:**
+- "Explain FINREP template structure"
+- "What are Basel III capital requirements?"
+- "How do COREP calculations work?"
+
+Would you like to try asking about any of these regulatory topics?""",
                     "sources": [],
-                    "metadata": "No relevant documents found"
+                    "metadata": "No relevant regulatory documents found"
                 }
             
             # Enhanced context formatting
@@ -461,9 +483,27 @@ Please provide a comprehensive answer based on the regulatory documentation prov
             except Exception as fallback_error:
                 logging.error(f"Fallback to base RAG also failed: {fallback_error}")
                 return {
-                    "response": f"I encountered an error while processing your regulatory query: {str(e)}",
+                    "response": """# 🏦 Regulatory Processing Issue
+
+I encountered a technical issue while processing your regulatory question.
+
+## 🔄 **Please try:**
+- **Ask your regulatory question again** - this might be a temporary issue
+- **Use specific regulatory terminology** like "Basel III", "COREP", "FINREP", "capital ratios"
+- **Check if your question relates to available regulatory frameworks**
+
+## 📋 **Available Regulatory Areas:**
+- Basel III capital and liquidity requirements
+- COREP reporting templates and calculations  
+- FINREP financial reporting under IFRS
+- EBA guidelines and technical standards
+
+## 📞 **Need assistance?**
+If this issue persists, please contact the regulatory support team.
+
+The technical issue has been logged for investigation.""",
                     "sources": [],
-                    "metadata": "Error occurred",
+                    "metadata": "Regulatory processing error",
                     "error": True
                 }
     

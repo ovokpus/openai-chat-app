@@ -62,8 +62,8 @@ class GlobalKnowledgeBaseService:
             
             print(f"📄 Found {len(document_files)} documents to process")
             
-            # Process documents using MultiDocumentProcessor
-            multi_doc_processor = MultiDocumentProcessor()
+            # Process documents using MultiDocumentProcessor with text chunking for smaller chunks
+            multi_doc_processor = MultiDocumentProcessor(enable_text_chunking=True, chunk_size=800)
             all_chunks = []
             
             for doc_path in document_files:
