@@ -95,6 +95,9 @@ async def rag_chat_legacy(request: Request):
     # This will be handled by the chat router
     pass
 
+# Vercel serverless function export
+handler = app
+
 if __name__ == "__main__":
     import uvicorn
     
