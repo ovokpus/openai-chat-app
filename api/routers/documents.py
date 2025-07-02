@@ -177,7 +177,16 @@ async def delete_session(session_id: str):
 @router.get("/global-knowledge-base")
 async def get_global_knowledge_base_info():
     """Get information about the global knowledge base"""
-    return global_kb_service.get_info()
+    try:
+        print("📊 Getting global knowledge base info...")
+        info = global_kb_service.get_info()
+        print(f"📈 KB Info: status={info['status']}, docs={info['document_count']}, chunks={info['chunk_count']}")
+        return info
+    except Exception as e:
+        print(f"❌ Error getting global KB info: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error getting global knowledge base info: {str(e)}")
 
 @router.post("/initialize-global-kb")
 async def initialize_global_knowledge_base():

@@ -22,7 +22,18 @@ async def lifespan(app: FastAPI):
     """Application lifecycle manager"""
     # Startup: Initialize global knowledge base
     print("🚀 Starting OpenAI Chat App with RAG...")
-    asyncio.create_task(global_kb_service.initialize_global_knowledge_base())
+    print("📚 Initializing global knowledge base...")
+    
+    try:
+        # Initialize synchronously during startup to ensure it's ready
+        await global_kb_service.initialize_global_knowledge_base()
+        info = global_kb_service.get_info()
+        print(f"📊 Global KB Status: {info['status']}")
+        print(f"📄 Documents: {info['original_document_count']} original, {info['user_uploaded_document_count']} uploaded")
+        print(f"📚 Total chunks: {info['chunk_count']}")
+    except Exception as e:
+        print(f"❌ Failed to initialize global knowledge base: {e}")
+        print("⚠️ App will continue but RAG features may not work")
     
     yield
     

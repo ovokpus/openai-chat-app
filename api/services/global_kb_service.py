@@ -38,18 +38,34 @@ class GlobalKnowledgeBaseService:
         try:
             print("🚀 Initializing global knowledge base with regulatory documents...")
             
-            # Path to organized knowledge base folder - handle both local and Vercel deployment
-            if os.getenv('VERCEL'):
-                # In Vercel, knowledge base is at the api/services level
-                knowledge_base_path = os.path.join("/var/task", "api", "services", "knowledge_base", "regulatory_docs")
-            else:
-                # Local development path
-                knowledge_base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "knowledge_base", "regulatory_docs")
+            # Path to organized knowledge base folder - robust path detection
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            local_path = os.path.join(current_dir, "knowledge_base", "regulatory_docs")
             
-            if not os.path.exists(knowledge_base_path):
-                print(f"📂 Knowledge base folder not found at {knowledge_base_path}")
+            # Try multiple potential paths for better Vercel compatibility
+            potential_paths = [
+                local_path,  # Local development
+                os.path.join("/var/task", "api", "services", "knowledge_base", "regulatory_docs"),  # Vercel serverless
+                os.path.join(os.getcwd(), "api", "services", "knowledge_base", "regulatory_docs"),  # Vercel alternative
+                os.path.join(os.path.dirname(current_dir), "knowledge_base", "regulatory_docs"),  # Relative fallback
+            ]
+            
+            knowledge_base_path = None
+            for path in potential_paths:
+                print(f"🔍 Checking path: {path}")
+                if os.path.exists(path):
+                    knowledge_base_path = path
+                    print(f"✅ Found knowledge base at: {knowledge_base_path}")
+                    break
+            
+            if not knowledge_base_path:
+                print(f"📂 Knowledge base folder not found in any expected location:")
+                for path in potential_paths:
+                    print(f"   - {path}: {'EXISTS' if os.path.exists(path) else 'NOT FOUND'}")
+                print(f"   - Current working directory: {os.getcwd()}")
+                print(f"   - Current file directory: {current_dir}")
                 self.global_knowledge_base["initialized"] = True
-                self.global_knowledge_base["error"] = "Knowledge base folder not found"
+                self.global_knowledge_base["error"] = f"Knowledge base folder not found (tried {len(potential_paths)} locations)"
                 return
             
             # Get list of supported files from organized subfolders
