@@ -1,0 +1,231 @@
+REGULATORY STEERING COMMITTEE PRESENTATION
+Q4 2024 BASEL III & REGULATORY REPORTING UPDATE
+
+==================================================
+SLIDE 1: TITLE SLIDE
+==================================================
+Title: Regulatory Steering Committee
+Subtitle: Q4 2024 Basel III Implementation Progress & Regulatory Reporting Update
+Date: December 20, 2024
+Presenter: Chief Risk Officer
+Attendees: Board Risk Committee, Executive Management
+
+==================================================
+SLIDE 2: EXECUTIVE SUMMARY
+==================================================
+Title: Executive Summary - Key Messages
+
+• Basel III implementation remains on track for January 2025 go-live
+• COREP templates C 01.00 and C 02.00 successfully validated in UAT
+• FINREP F 18.00 implementation delayed to Q1 2025 due to data quality issues
+• Capital ratios exceed regulatory minimums with comfortable management buffers
+• EBA stress testing results confirm adequate capital resilience
+
+Key Risks:
+- Data lineage gaps in subsidiaries consolidation
+- Model validation pending for IRB credit risk approach
+- Operational risk AMA approval timeline uncertainty
+
+==================================================
+SLIDE 3: BASEL III CAPITAL RATIOS
+==================================================
+Title: Current Capital Position vs. Regulatory Requirements
+
+Current Ratios (December 2024):
+• CET1 Ratio: 13.2% (Requirement: 7.0% including buffer)
+• Tier 1 Ratio: 15.1% (Requirement: 8.5% including buffer)
+• Total Capital Ratio: 17.8% (Requirement: 10.5% including buffer)
+
+Management Buffers:
+• CET1 Management Buffer: 2.0% above regulatory requirement
+• Stress Testing Buffer: 1.5% additional buffer maintained
+• Business Growth Buffer: 1.0% for strategic initiatives
+
+Chart: Capital ratios trend over 12 months showing consistent improvement
+
+==================================================
+SLIDE 4: REGULATORY REPORTING STATUS
+==================================================
+Title: Regulatory Reporting Implementation Progress
+
+COREP Templates Status:
+✓ C 01.00 Capital adequacy - COMPLETED
+✓ C 02.00 Own funds requirements - COMPLETED
+✓ C 03.00 Own funds - COMPLETED
+⚠ C 04.00 IRB credit risk - IN PROGRESS (Q1 2025)
+⚠ C 05.00 Standardised credit risk - TESTING
+✓ C 06.00 Market risk - COMPLETED
+
+FINREP Templates Status:
+✓ F 01.01 Credit institutions balance sheet - COMPLETED
+⚠ F 18.00 Breakdown of loans and advances - DELAYED
+✓ F 16.00 Breakdown of deposits - COMPLETED
+⚠ F 19.00 Impairments and provisions - IN PROGRESS
+
+==================================================
+SLIDE 5: KEY CHALLENGES & RISKS
+==================================================
+Title: Implementation Challenges and Risk Mitigation
+
+High Priority Issues:
+1. Data Quality - Subsidiaries Consolidation
+   Risk: Incorrect consolidation scope affecting capital calculations
+   Mitigation: Enhanced data validation rules and manual verification
+   Timeline: Resolution by Q1 2025
+
+2. Model Validation Delays
+   Risk: IRB models not approved before go-live
+   Mitigation: Parallel run with standardised approach as fallback
+   Timeline: Supervisory approval expected Q2 2025
+
+3. System Integration Testing
+   Risk: End-to-end testing incomplete for market risk
+   Mitigation: Extended UAT period and additional test scenarios
+   Timeline: Completion by January 15, 2025
+
+Medium Priority:
+• Staff training completion: 85% (target 95%)
+• Documentation updates pending for 3 procedures
+• Regulatory change monitoring process enhancement
+
+==================================================
+SLIDE 6: EBA STRESS TESTING RESULTS
+==================================================
+Title: 2024 EBA Stress Test Results Summary
+
+Adverse Scenario Impact:
+• CET1 Ratio Baseline (2024): 13.2%
+• CET1 Ratio Adverse (2026): 9.8%
+• Minimum CET1 Ratio during stress: 9.1% (2025)
+
+Key Findings:
+• Bank maintains CET1 above regulatory minimum throughout stress period
+• Credit losses primarily driven by corporate portfolio deterioration
+• Market risk impact limited due to conservative trading book
+• Operational risk losses within expected ranges
+
+Management Actions Available:
+- Dividend restriction capability: €2.1B capital preservation
+- Business growth constraint: €800M capital savings
+- Capital instrument issuance: €1.5B AT1 capacity
+
+==================================================
+SLIDE 7: DATA LINEAGE & GOVERNANCE
+==================================================
+Title: Data Governance and Lineage Enhancement
+
+Source Systems Integration:
+• Core Banking System (CBS): ✓ INTEGRATED
+• Market Risk System (MUREX): ✓ INTEGRATED  
+• General Ledger (SAP): ✓ INTEGRATED
+• Treasury Management System: ⚠ TESTING
+• Subsidiaries Reporting: ⚠ DATA QUALITY ISSUES
+
+Data Quality Metrics:
+• Completeness: 98.5% (target: 99.0%)
+• Accuracy: 97.2% (target: 99.5%)
+• Timeliness: 99.1% (target: 99.0%)
+• Consistency: 96.8% (target: 98.0%)
+
+Critical Data Flows:
+1. CBS → DWH → Regulatory Reporting: Daily reconciliation
+2. MUREX → Risk Management → Capital Calculation: Real-time
+3. GL → Financial Reporting → Regulatory Templates: Monthly
+
+==================================================
+SLIDE 8: IMPLEMENTATION TIMELINE
+==================================================
+Title: Q1 2025 Implementation Roadmap
+
+January 2025:
+Week 1: Final UAT completion for market risk templates
+Week 2: Parallel run testing with production data
+Week 3: EBA portal connectivity testing
+Week 4: Go-live for COREP C 01.00, C 02.00, C 03.00
+
+February 2025:
+Week 1: FINREP F 18.00 data quality remediation
+Week 2: Extended testing for subsidiaries consolidation
+Week 3: Model validation documentation submission
+Week 4: First quarter regulatory submission (Q4 2024 data)
+
+March 2025:
+Week 1: IRB approach implementation (if approved)
+Week 2: Advanced approaches integration testing
+Week 3: Annual ICAAP preparation
+Week 4: Stress testing model enhancement
+
+==================================================
+SLIDE 9: RESOURCE REQUIREMENTS
+==================================================
+Title: Resource Allocation and Budget Impact
+
+Project Team Allocation:
+• Data Engineering: 12 FTE (3 months additional)
+• Risk Management: 8 FTE (ongoing)
+• IT Development: 15 FTE (2 months additional)
+• Regulatory Affairs: 5 FTE (ongoing)
+• Testing and Validation: 10 FTE (1 month additional)
+
+Budget Impact Q1 2025:
+• Consultant Support: €2.3M (model validation expertise)
+• System Enhancement: €1.8M (infrastructure scaling)
+• Training and Development: €400K (staff certification)
+• Regulatory Technology: €1.2M (reporting automation)
+
+Total Additional Investment: €5.7M
+
+Expected Benefits:
+• Automated reporting saves 240 hours/month
+• Enhanced risk monitoring improves decision making
+• Regulatory compliance reduces supervisory scrutiny
+• Model improvements support capital optimization
+
+==================================================
+SLIDE 10: NEXT STEPS & RECOMMENDATIONS
+==================================================
+Title: Recommendations and Next Steps
+
+Board Risk Committee Recommendations:
+1. Approve additional €5.7M budget for Q1 implementation
+2. Authorize extension of consultant contracts through Q2 2025
+3. Approve model validation approach and IRB implementation timeline
+4. Endorse enhanced data governance framework
+
+Management Actions Required:
+• Complete recruitment of 2 additional risk analysts
+• Finalize vendor contracts for model validation support
+• Establish dedicated testing environment for regulatory reporting
+• Implement change management process for regulatory updates
+
+Stakeholder Communication:
+• Monthly progress updates to Board Risk Committee
+• Quarterly submissions to national supervisor
+• Regular communication with business units on impact
+• External auditor coordination for year-end validation
+
+==================================================
+SLIDE 11: APPENDIX - TECHNICAL DETAILS
+==================================================
+Title: Technical Implementation Details
+
+COREP Template Mapping:
+C 01.00 Row 010: CET1 Capital = CBS.capital_instruments + CBS.retained_earnings - adjustments
+C 01.00 Row 020: Total RWA = Credit_RWA + Market_RWA + Operational_RWA
+C 01.00 Row 030: CET1 Ratio = (Row 010 / Row 020) * 100
+
+Data Validation Rules:
+• Balance sheet reconciliation tolerance: ±€1M
+• Capital calculation variance threshold: ±0.01%
+• Risk-weighted assets validation: monthly backtesting
+• Foreign exchange translation: ECB rates daily update
+
+System Architecture:
+Source → ETL → Data Warehouse → Calculation Engine → Validation → Reporting
+- Real-time data feeds for market risk
+- Daily batch processing for credit risk  
+- Monthly consolidation for regulatory submission
+- Automated quality checks at each stage
+
+Speaker Notes:
+This presentation was delivered to the Board Risk Committee on December 20, 2024. The committee approved all recommendations and the additional budget allocation. Special attention was given to the subsidiaries data quality issues and the need for enhanced validation procedures. The next committee meeting is scheduled for January 25, 2025, to review go-live results and address any issues arising from the initial implementation phase. 

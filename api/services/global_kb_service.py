@@ -38,30 +38,34 @@ class GlobalKnowledgeBaseService:
         try:
             print("🚀 Initializing global knowledge base with regulatory documents...")
             
-            # Path to documents folder - handle both local and Vercel deployment
+            # Path to organized knowledge base folder - handle both local and Vercel deployment
             if os.getenv('VERCEL'):
-                # In Vercel, documents are at the root level
-                documents_path = os.path.join("/var/task", "documents")
+                # In Vercel, knowledge base is at the api/services level
+                knowledge_base_path = os.path.join("/var/task", "api", "services", "knowledge_base", "regulatory_docs")
             else:
                 # Local development path
-                documents_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "documents")
+                knowledge_base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "knowledge_base", "regulatory_docs")
             
-            if not os.path.exists(documents_path):
-                print(f"📂 Documents folder not found at {documents_path}")
+            if not os.path.exists(knowledge_base_path):
+                print(f"📂 Knowledge base folder not found at {knowledge_base_path}")
                 self.global_knowledge_base["initialized"] = True
-                self.global_knowledge_base["error"] = "Documents folder not found"
+                self.global_knowledge_base["error"] = "Knowledge base folder not found"
                 return
             
-            # Get list of supported files
+            # Get list of supported files from organized subfolders
             supported_extensions = ['.pdf', '.xlsx', '.xls', '.docx', '.pptx', '.ppt', '.csv', '.sql', '.py', '.js', '.ts', '.md', '.txt']
             
             document_files = []
-            for file in os.listdir(documents_path):
-                if any(file.lower().endswith(ext) for ext in supported_extensions):
-                    document_files.append(os.path.join(documents_path, file))
+            # Scan through all regulatory document subfolders
+            for subfolder in os.listdir(knowledge_base_path):
+                subfolder_path = os.path.join(knowledge_base_path, subfolder)
+                if os.path.isdir(subfolder_path):
+                    for file in os.listdir(subfolder_path):
+                        if any(file.lower().endswith(ext) for ext in supported_extensions):
+                            document_files.append(os.path.join(subfolder_path, file))
             
             if not document_files:
-                print("📂 No supported documents found in documents folder")
+                print("📂 No supported documents found in knowledge base folders")
                 self.global_knowledge_base["initialized"] = True
                 return
             
