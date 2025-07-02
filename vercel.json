@@ -1,11 +1,12 @@
 {
   "version": 2,
-  "buildCommand": "cd aimakerspace && python -m pip wheel . -w dist && cd ../frontend && npm install && npm run build && cd .. && mkdir -p api/wheels && cp aimakerspace/dist/aimakerspace-0.1.0-py3-none-any.whl api/wheels/",
+  "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
   "functions": {
     "api/**": {
       "excludeFiles": "{etl/**,tests/**,frontend/**,.venv/**,node_modules/**,.git/**,.vercel/**}",
-      "includeFiles": "api/wheels/**"
+      "includeFiles": "api/wheels/**",
+      "runtime": "python3.12"
     }
   },
   "rewrites": [
