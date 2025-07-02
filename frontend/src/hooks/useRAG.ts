@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { uploadPDF, sendRAGMessage, getSessionInfo, deleteSession } from '../services/chatApi'
 import type { UploadResponse, SessionInfo, RAGChatRequest } from '../types'
+import { logger, logApiResponse } from '../utils/logger'
 
 export const useRAG = () => {
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null)
@@ -18,14 +19,14 @@ export const useRAG = () => {
   const loadSessionInfo = async (id: string) => {
     try {
       const info = await getSessionInfo(id)
-      console.log('Loaded session info:', info) // Debug log
+      logger.debug('Loaded session info:', info)
       setSessionInfo(info)
       // Ensure sessionId is always set when we have session info
       if (info && info.session_id) {
         setSessionId(info.session_id)
       }
     } catch (error) {
-      console.error('Failed to load session info:', error)
+      logger.error('Failed to load session info:', error)
       // If session not found, reset
       setSessionInfo(null)
       setSessionId(null)
@@ -38,7 +39,7 @@ export const useRAG = () => {
 
     try {
       const response: UploadResponse = await uploadPDF(file, apiKey, sessionId || undefined)
-      console.log('Upload response:', response) // Debug log
+      logApiResponse('upload-pdf', response)
       
       // Update session ID first
       setSessionId(response.session_id)
@@ -57,7 +58,7 @@ export const useRAG = () => {
         updatedSessionInfo.created_at = sessionInfo.created_at
       }
       
-      console.log('Setting session info:', updatedSessionInfo) // Debug log
+      logger.debug('Setting session info:', updatedSessionInfo)
       setSessionInfo(updatedSessionInfo)
       
       // Also load fresh session info from server to be sure
@@ -82,13 +83,13 @@ export const useRAG = () => {
     // Use sessionId from sessionInfo if sessionId state is null
     let activeSessionId = sessionId || sessionInfo?.session_id
     
-    console.log('SendRAGChat - sessionId:', sessionId, 'sessionInfo.session_id:', sessionInfo?.session_id, 'using:', activeSessionId)
+    logger.debug('SendRAGChat - sessionId:', sessionId, 'sessionInfo.session_id:', sessionInfo?.session_id, 'using:', activeSessionId)
     
     // If no session exists, generate a temporary one for global knowledge base access
     if (!activeSessionId) {
-      console.log('No active session, generating temporary session for global knowledge base access')
+      logger.debug('No active session, generating temporary session for global knowledge base access')
       activeSessionId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      console.log('Generated temporary session ID:', activeSessionId)
+      logger.debug('Generated temporary session ID:', activeSessionId)
     }
 
     const request: RAGChatRequest = {
@@ -105,18 +106,18 @@ export const useRAG = () => {
       // If we used a temporary session and got a successful response, 
       // check if the backend created a real session for us
       if (!sessionId && !sessionInfo && activeSessionId.startsWith('temp-')) {
-        console.log('Checking if backend created a session for temporary session')
+        logger.debug('Checking if backend created a session for temporary session')
         try {
           // Try to get session info for the temporary session
           const newSessionInfo = await getSessionInfo(activeSessionId)
           if (newSessionInfo) {
-            console.log('Backend created session for us:', newSessionInfo)
+            logger.debug('Backend created session for us:', newSessionInfo)
             setSessionId(activeSessionId)
             setSessionInfo(newSessionInfo)
           }
         } catch (error) {
           // Session might not exist on backend, that's ok for global KB access
-          console.log('Temporary session not found on backend, using global knowledge base')
+          logger.debug('Temporary session not found on backend, using global knowledge base')
         }
       }
       
@@ -124,7 +125,7 @@ export const useRAG = () => {
     } catch (error) {
       // If we get a session not found error, clear the invalid session
       if (error instanceof Error && error.message.includes('Session not found')) {
-        console.log('Session no longer exists on server, clearing local session state')
+        logger.warn('Session no longer exists on server, clearing local session state')
         setSessionInfo(null)
         setSessionId(null)
         setUploadError('Your session has expired. Please upload your PDF again.')
@@ -137,9 +138,9 @@ export const useRAG = () => {
     if (sessionId) {
       try {
         await deleteSession(sessionId)
-      } catch (error) {
-        console.error('Failed to delete session:', error)
-      }
+          } catch (error) {
+      logger.error('Failed to delete session:', error)
+    }
     }
     
     // Reset local state
@@ -151,7 +152,7 @@ export const useRAG = () => {
   const hasActiveSession = (globalKBReady: boolean = false): boolean => {
     const hasSession = !!(sessionInfo && sessionInfo.document_count > 0)
     const hasSessionId = !!(sessionId || sessionInfo?.session_id)
-    console.log('Has active session:', hasSession, 'hasSessionId:', hasSessionId, 'globalKBReady:', globalKBReady, 'sessionInfo:', sessionInfo, 'sessionId:', sessionId) // Debug log
+    logger.debug('Has active session check:', { hasSession, hasSessionId, globalKBReady, sessionInfo, sessionId })
     
     // Return true if user has uploaded documents OR if global knowledge base is ready
     return (hasSession && hasSessionId) || globalKBReady
@@ -175,7 +176,7 @@ export const useRAG = () => {
       await getSessionInfo(activeSessionId)
       return true
     } catch (error) {
-      console.log('Session validation failed, clearing local state')
+      logger.warn('Session validation failed, clearing local state')
       setSessionInfo(null)
       setSessionId(null)
       setUploadError('Your session has expired. Please upload your PDF again.')

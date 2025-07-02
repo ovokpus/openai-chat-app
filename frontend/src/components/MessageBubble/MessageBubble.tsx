@@ -17,6 +17,7 @@ const MemoizedMarkdown = memo(({ content }: { content: string }) => (
     rehypePlugins={[rehypeKatex]}
     skipHtml={true}
     components={{
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       code({ inline, className, children, ...props }: any) {
         return !inline ? (
           <pre className="code-block">

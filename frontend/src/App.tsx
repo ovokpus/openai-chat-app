@@ -2,7 +2,8 @@ import { KeyIcon, PaperAirplaneIcon, SparklesIcon } from '@heroicons/react/24/so
 import { useChat } from './hooks/useChat'
 import { useRAG } from './hooks/useRAG'
 import { useGlobalKnowledgeBase } from './hooks/useGlobalKnowledgeBase'
-import { WelcomeSection, MessageBubble, LoadingIndicator, PDFUpload, DocumentPanel } from './components'
+import { WelcomeSection, MessageBubble, LoadingIndicator, PDFUpload, DocumentPanel, ConfirmationModal } from './components'
+import { logger } from './utils/logger'
 import 'katex/dist/katex.min.css'
 import './App.css'
 import { useState, useRef, useEffect } from 'react'
@@ -40,7 +41,10 @@ function App() {
   const {
     globalKB,
     isReady: globalKBReady,
-    isInitializing: globalKBInitializing
+    isInitializing: globalKBInitializing,
+    refresh: refreshGlobalKB,
+    deleteUserDocument,
+    isDeleting
   } = useGlobalKnowledgeBase()
 
   // Local state for RAG mode and UI
@@ -48,6 +52,15 @@ function App() {
   const [showUploadError, setShowUploadError] = useState(false)
   const [showUploadSuccess, setShowUploadSuccess] = useState(false)
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState('')
+
+  // Modal state for document deletion
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean
+    filename: string | null
+  }>({
+    isOpen: false,
+    filename: null
+  })
 
   // Validate session when component mounts
   useEffect(() => {
@@ -151,7 +164,7 @@ function App() {
             assistantMsg.content = assistantMessage
           }
         } catch (error) {
-          console.error('Regular chat error:', error)
+          logger.error('Regular chat error:', error)
           addMessage({ 
             role: 'assistant', 
             content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}` 
@@ -159,7 +172,7 @@ function App() {
         }
       }
     } catch (error) {
-      console.error('Chat error:', error)
+      logger.error('Chat error:', error)
       addMessage({ 
         role: 'assistant', 
         content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}` 
@@ -170,27 +183,37 @@ function App() {
   }
 
   const handleUploadSuccess = async (response: any) => {
-    console.log('Upload successful in App:', response)
+    logger.debug('Upload successful in App:', response)
     setRagMode(true) // Auto-enable RAG mode when PDF is uploaded
     clearUploadError()
     setShowUploadError(false)
     
     // Show success message
-    setUploadSuccessMessage(`Successfully uploaded "${response.filename}" with ${response.document_count} documents`)
+    setUploadSuccessMessage(`Successfully uploaded "${response.filename}" - added to global knowledge base`)
     setShowUploadSuccess(true)
     
     // Hide success message after 5 seconds
     setTimeout(() => setShowUploadSuccess(false), 5000)
     
-    // Force refresh session info to update the document panel
+    // Force refresh both session info and global KB to update the document panel
     if (response.session_id) {
-      console.log('Refreshing session info for:', response.session_id)
+      logger.debug('Refreshing session info for:', response.session_id)
       await refreshSessionInfo(response.session_id)
     }
+    
+    // Immediate refresh of global KB to show the newly uploaded document
+    logger.debug('📤 Document uploaded, refreshing Global KB immediately...')
+    await refreshGlobalKB()
+    
+    // Secondary refresh after a short delay to ensure backend processing is complete
+    setTimeout(async () => {
+      logger.debug('🔄 Secondary Global KB refresh after upload processing...')
+      await refreshGlobalKB()
+    }, 2000)
   }
 
   const handleUploadError = (error: string) => {
-    console.error('Upload error:', error)
+    logger.error('Upload error:', error)
     setShowUploadError(true)
   }
 
@@ -211,6 +234,62 @@ function App() {
       setRagMode(true)
       setInput("What are the Basel III minimum capital requirements for CET1 ratio?")
     }
+  }
+
+  // Modal handlers for document deletion
+  const handleDeleteDocumentRequest = (filename: string) => {
+    if (!apiKey) {
+      alert('API key is required to delete documents')
+      return
+    }
+
+    setDeleteModalState({
+      isOpen: true,
+      filename
+    })
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!deleteModalState.filename || !apiKey) return
+
+    logger.debug(`🗑️ Starting deletion of "${deleteModalState.filename}"...`)
+    const success = await deleteUserDocument(deleteModalState.filename, apiKey)
+    
+    // Close modal
+    setDeleteModalState({
+      isOpen: false,
+      filename: null
+    })
+
+    if (success) {
+      logger.debug(`✅ Document "${deleteModalState.filename}" deleted successfully`)
+      
+      // Refresh both session info and global KB immediately
+      if (sessionInfo?.session_id) {
+        logger.debug('Refreshing session info after deletion...')
+        await refreshSessionInfo(sessionInfo.session_id)
+      }
+      
+      // Global KB refresh is already handled in deleteUserDocument,
+      // but we'll do an additional refresh to ensure UI is up to date
+      logger.debug('🔄 Additional Global KB refresh after deletion...')
+      await refreshGlobalKB()
+      
+      // Final refresh after a short delay to ensure complete synchronization
+      setTimeout(async () => {
+        logger.debug('🔄 Final Global KB refresh to ensure synchronization...')
+        await refreshGlobalKB()
+      }, 1500)
+    } else {
+      logger.error(`❌ Failed to delete document "${deleteModalState.filename}"`)
+    }
+  }
+
+  const handleCancelDelete = () => {
+    setDeleteModalState({
+      isOpen: false,
+      filename: null
+    })
   }
 
   return (
@@ -315,9 +394,19 @@ function App() {
               />
               
               <DocumentPanel
-                sessionInfo={sessionInfo}
-                onClearSession={handleClearSession}
-                isLoading={isUploading}
+                apiKey={apiKey}
+                onRefresh={async () => {
+                  // Refresh both session info and global KB when documents change
+                  logger.debug('🔄 DocumentPanel manual refresh triggered')
+                  if (sessionInfo?.session_id) {
+                    logger.debug('Refreshing session info...')
+                    await refreshSessionInfo(sessionInfo.session_id)
+                  }
+                  // Always refresh global KB since that's what DocumentPanel displays
+                  logger.debug('Refreshing Global KB from DocumentPanel...')
+                  await refreshGlobalKB()
+                }}
+                onDeleteDocument={handleDeleteDocumentRequest}
               />
             </div>
           )}
@@ -399,6 +488,19 @@ function App() {
           </div>
         </div>
       </main>
+
+      {/* Confirmation Modal for Document Deletion */}
+      <ConfirmationModal
+        isOpen={deleteModalState.isOpen}
+        title="Delete Document"
+        message={`Are you sure you want to delete "${deleteModalState.filename}"? This action cannot be undone and will remove the document from the global knowledge base for everyone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        type="danger"
+        isLoading={isDeleting === deleteModalState.filename}
+      />
     </div>
   )
 }

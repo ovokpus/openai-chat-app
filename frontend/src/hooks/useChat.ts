@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { Message } from '../types'
 import { sendChatMessage } from '../services/chatApi'
+import { logger } from '../utils/logger'
 
 export const useChat = () => {
   const [messages, setMessages] = useState<Message[]>([])
@@ -81,7 +82,7 @@ export const useChat = () => {
         })
       }
     } catch (error) {
-      console.error('Error:', error)
+      logger.error('Chat error:', error)
       setMessages(prev => [...prev, { 
         role: 'assistant', 
         content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}` 

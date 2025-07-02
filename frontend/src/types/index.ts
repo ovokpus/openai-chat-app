@@ -40,6 +40,19 @@ export interface SessionInfo {
   created_at: string
 }
 
+export interface GlobalKnowledgeBaseInfo {
+  status: 'not_initialized' | 'error' | 'ready'
+  initialized: boolean
+  error: string | null
+  documents: string[]  // Original documents
+  user_uploaded_documents: string[]  // User-uploaded documents
+  document_count: number
+  original_document_count: number
+  user_uploaded_document_count: number
+  chunk_count: number
+  description: string
+}
+
 export interface PDFUploadState {
   isUploading: boolean
   uploadProgress: number

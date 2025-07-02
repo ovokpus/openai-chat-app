@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react'
 import { CloudArrowUpIcon, DocumentIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { uploadDocument } from '../../services/chatApi'
 import type { MultiDocumentUploadResponse } from '../../types'
+import { logger } from '../../utils/logger'
 import './PDFUpload.css'
 
 interface DocumentUploadProps {
@@ -12,7 +13,7 @@ interface DocumentUploadProps {
   disabled?: boolean
 }
 
-// Supported file types for regulatory documents
+// Supported file types for global knowledge base
 const SUPPORTED_FILE_TYPES = [
   '.pdf', '.docx', '.xlsx', '.xls', '.pptx', '.ppt', 
   '.csv', '.sql', '.py', '.js', '.ts', '.md', '.txt'
@@ -70,10 +71,10 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
     
     try {
       const response = await uploadDocument(file, apiKey, sessionId)
-      console.log('DocumentUpload: Upload successful', response) // Debug log
+      logger.debug('DocumentUpload: Upload successful', response)
       onUploadSuccess(response)
     } catch (error) {
-      console.error('DocumentUpload: Upload failed', error) // Debug log
+      logger.error('DocumentUpload: Upload failed', error)
       onUploadError(error instanceof Error ? error.message : 'Upload failed')
     } finally {
       setIsUploading(false)
@@ -139,9 +140,12 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
         ) : (
           <div className="upload-content">
             <CloudArrowUpIcon className="upload-icon" />
-            <p className="upload-text">
-              Drop your regulatory document here or <span className="upload-link">click to browse</span>
-            </p>
+            <div className="upload-text-container">
+              <h3 className="upload-title">Add to Knowledge Base</h3>
+              <p className="upload-description">
+                Drop files here or <span className="upload-link">browse your device</span>
+              </p>
+            </div>
             <p className="upload-hint">
               Supports: PDF, Word, Excel, PowerPoint, CSV, SQL, Python, etc. (Max: 10MB)
             </p>

@@ -51,10 +51,14 @@ user_sessions: Dict[str, Dict[str, Any]] = {}
 global_knowledge_base: Dict[str, Any] = {
     "vector_db": None,
     "documents": [],
+    "user_uploaded_documents": [],  # Track user-uploaded documents separately
     "rag_pipeline": None,
     "regulatory_enhancer": None,
     "initialized": False,
-    "error": None
+    "error": None,
+    "chunked_documents": [],  # Keep chunked documents for re-initialization
+    "embedding_model": None,  # Store embedding model for adding new documents
+    "chat_model": None  # Store chat model for re-creating pipelines
 }
 
 # Define the data model for chat requests using Pydantic
@@ -109,7 +113,7 @@ class SessionInfo(BaseModel):
     created_at: str
 
 # Helper function to get or create user session
-def get_or_create_session(session_id: Optional[str] = None, api_key: Optional[str] = None) -> str:
+async def get_or_create_session(session_id: Optional[str] = None, api_key: Optional[str] = None) -> str:
     if session_id and session_id in user_sessions:
         session = user_sessions[session_id]
         # Ensure the vector database has a properly initialized embedding model
@@ -123,7 +127,7 @@ def get_or_create_session(session_id: Optional[str] = None, api_key: Optional[st
             session["api_key"] = api_key
             
             # Initialize with global knowledge base if available
-            global_kb = get_global_knowledge_base(api_key)
+            global_kb = await get_global_knowledge_base(api_key)
             if global_kb:
                 print(f"📚 Merging global knowledge base into session {session_id}")
                 session["global_kb"] = global_kb
@@ -138,7 +142,7 @@ def get_or_create_session(session_id: Optional[str] = None, api_key: Optional[st
         vector_db = VectorDatabase(embedding_model=embedding_model)
         
         # Try to initialize with global knowledge base
-        global_kb = get_global_knowledge_base(api_key)
+        global_kb = await get_global_knowledge_base(api_key)
         has_global_kb = global_kb is not None
         
         user_sessions[new_session_id] = {
@@ -246,7 +250,9 @@ async def initialize_global_knowledge_base():
                                 'source_file': filename,
                                 'page_number': page_num + 1,
                                 'doc_type': 'pdf',
-                                'total_pages': len(pdf_content)
+                                'total_pages': len(pdf_content),
+                                'source': 'original',
+                                'is_original': True  # Mark as original document
                             }
                             documents.append(simple_doc)
                 elif file_extension in ['.xlsx', '.xls', '.docx', '.pptx', '.ppt', '.csv', '.sql', '.py', '.js', '.ts', '.md', '.txt']:
@@ -258,7 +264,12 @@ async def initialize_global_knowledge_base():
                         # Create a simple document object with content and metadata
                         simple_doc = type('Document', (), {})()
                         simple_doc.page_content = doc.content
-                        simple_doc.metadata = doc.metadata
+                        simple_doc.metadata = doc.metadata.copy()
+                        # Mark as original document
+                        simple_doc.metadata.update({
+                            'source': 'original',
+                            'is_original': True
+                        })
                         documents.append(simple_doc)
                 else:
                     print(f"⚠️ Unsupported file type: {filename}")
@@ -327,7 +338,7 @@ async def initialize_global_knowledge_base():
         global_knowledge_base["error"] = str(e)
 
 # Function to get global knowledge base with user's API key
-def get_global_knowledge_base(api_key: str):
+async def get_global_knowledge_base(api_key: str):
     """
     Get the global knowledge base initialized with the user's API key for embeddings.
     """
@@ -386,10 +397,8 @@ def get_global_knowledge_base(api_key: str):
                 print(f"✅ Successfully added {len(chunked_documents)} chunks to vector database")
                 
             try:
-                # Run the async function using the current event loop
-                import asyncio
-                loop = asyncio.get_event_loop()
-                loop.run_until_complete(generate_and_insert_embeddings())
+                # Use await since we'll make this function async
+                await generate_and_insert_embeddings()
                 
             except Exception as e:
                 print(f"❌ Error during batch embedding generation: {e}")
@@ -420,6 +429,179 @@ def get_global_knowledge_base(api_key: str):
         return None
     
     return None
+
+# Helper functions to manage global knowledge base
+async def add_document_to_global_kb(chunks: List[str], filename: str, api_key: str, doc_type: str = "pdf", metadata_extra: Dict[str, Any] = None) -> bool:
+    """
+    Add a new document to the global knowledge base.
+    """
+    global global_knowledge_base
+    
+    if not global_knowledge_base["initialized"]:
+        print(f"❌ Global knowledge base not initialized")
+        return False
+    
+    try:
+        # Ensure we have the necessary models
+        if not global_knowledge_base["embedding_model"]:
+            global_knowledge_base["embedding_model"] = EmbeddingModel(api_key=api_key)
+        
+        if not global_knowledge_base["chat_model"]:
+            global_knowledge_base["chat_model"] = ChatOpenAI(api_key=api_key)
+        
+        # Get or create the global vector database with current API key
+        global_kb = await get_global_knowledge_base(api_key)
+        if not global_kb:
+            print(f"❌ Could not get global knowledge base")
+            return False
+        
+        vector_db = global_kb["vector_db"]
+        print(f"🌍 Adding {filename} to global knowledge base with {len(chunks)} chunks...")
+        
+        # Add chunks to global vector database
+        chunks_added = 0
+        for i, chunk in enumerate(chunks):
+            try:
+                # Generate embedding
+                embedding = vector_db.embedding_model.get_embedding(chunk)
+                
+                # Create metadata
+                metadata = {
+                    "filename": filename,
+                    "chunk_index": i,
+                    "upload_time": datetime.now().isoformat(),
+                    "source": "user_uploaded",
+                    "doc_type": doc_type,
+                    "is_original": False  # Mark as user-uploaded, not original
+                }
+                
+                # Add extra metadata if provided
+                if metadata_extra:
+                    metadata.update(metadata_extra)
+                
+                # Insert into global vector database
+                vector_db.insert(chunk, np.array(embedding), metadata)
+                chunks_added += 1
+                
+                # Create document object for chunked_documents list
+                chunk_doc = type('Document', (), {})()
+                chunk_doc.page_content = chunk
+                chunk_doc.metadata = metadata
+                global_knowledge_base["chunked_documents"].append(chunk_doc)
+                
+                if (i + 1) % 10 == 0:
+                    print(f"🔄 Added chunk {i + 1}/{len(chunks)} to global KB...")
+                    
+            except Exception as e:
+                print(f"⚠️ Error adding chunk {i+1} to global KB: {e}")
+                continue
+        
+        # Update global knowledge base tracking
+        if filename not in global_knowledge_base["user_uploaded_documents"]:
+            global_knowledge_base["user_uploaded_documents"].append(filename)
+        
+        # Update the global vector database reference
+        global_knowledge_base["vector_db"] = vector_db
+        
+        # Recreate RAG pipeline with updated vector database
+        global_knowledge_base["rag_pipeline"] = RAGPipeline(
+            llm=global_knowledge_base["chat_model"],
+            vector_db=vector_db,
+            response_style="detailed"
+        )
+        
+        # Recreate regulatory enhancer
+        regulatory_enhancer = RegulatoryRAGEnhancer(global_knowledge_base["rag_pipeline"])
+        global_knowledge_base["regulatory_enhancer"] = regulatory_enhancer
+        
+        print(f"✅ Successfully added {chunks_added} chunks from {filename} to global knowledge base")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error adding document to global knowledge base: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+async def remove_document_from_global_kb(filename: str, api_key: str) -> bool:
+    """
+    Remove a user-uploaded document from the global knowledge base.
+    Original documents cannot be removed.
+    """
+    global global_knowledge_base
+    
+    if not global_knowledge_base["initialized"]:
+        print(f"❌ Global knowledge base not initialized")
+        return False
+    
+    # Check if this is a user-uploaded document
+    if filename not in global_knowledge_base["user_uploaded_documents"]:
+        print(f"❌ Cannot remove {filename} - not a user-uploaded document or doesn't exist")
+        return False
+    
+    try:
+        print(f"🗑️ Removing {filename} from global knowledge base...")
+        
+        # Get current global knowledge base
+        global_kb = await get_global_knowledge_base(api_key)
+        if not global_kb:
+            print(f"❌ Could not get global knowledge base")
+            return False
+        
+        vector_db = global_kb["vector_db"]
+        
+        # Find and remove all chunks for this filename
+        chunks_removed = 0
+        if hasattr(vector_db, 'vectors') and vector_db.vectors:
+            # Create new vectors dict without the chunks from this file
+            new_vectors = {}
+            new_metadata = {}
+            
+            for text, vector in vector_db.vectors.items():
+                metadata = vector_db.get_metadata(text)
+                if metadata and metadata.get("filename") != filename:
+                    # Keep this chunk (it's not from the file we're removing)
+                    new_vectors[text] = vector
+                    new_metadata[text] = metadata
+                else:
+                    chunks_removed += 1
+            
+            # Replace the vectors
+            vector_db.vectors = new_vectors
+            vector_db.metadata = new_metadata
+        
+        # Remove from chunked_documents list
+        global_knowledge_base["chunked_documents"] = [
+            doc for doc in global_knowledge_base["chunked_documents"]
+            if not (hasattr(doc, 'metadata') and doc.metadata and doc.metadata.get("filename") == filename)
+        ]
+        
+        # Remove from user_uploaded_documents list
+        global_knowledge_base["user_uploaded_documents"].remove(filename)
+        
+        # Update the global vector database reference
+        global_knowledge_base["vector_db"] = vector_db
+        
+        # Recreate RAG pipeline with updated vector database
+        if global_knowledge_base["chat_model"]:
+            global_knowledge_base["rag_pipeline"] = RAGPipeline(
+                llm=global_knowledge_base["chat_model"],
+                vector_db=vector_db,
+                response_style="detailed"
+            )
+            
+            # Recreate regulatory enhancer
+            regulatory_enhancer = RegulatoryRAGEnhancer(global_knowledge_base["rag_pipeline"])
+            global_knowledge_base["regulatory_enhancer"] = regulatory_enhancer
+        
+        print(f"✅ Successfully removed {chunks_removed} chunks from {filename} from global knowledge base")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error removing document from global knowledge base: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 # Original chat endpoint (unchanged for backward compatibility)
 @app.post("/api/chat")
@@ -460,7 +642,7 @@ async def upload_pdf(
     api_key: str = Form(...)
 ):
     try:
-        print(f"📁 Starting PDF upload: {file.filename}")
+        print(f"📁 Starting PDF upload to global knowledge base: {file.filename}")
         
         # Validate file type
         if not file.filename.lower().endswith('.pdf'):
@@ -469,9 +651,13 @@ async def upload_pdf(
         
         print(f"✅ File validation passed")
         
-        # Get or create session with API key
-        session_id = get_or_create_session(session_id, api_key)
-        session = user_sessions[session_id]
+        # Check if global knowledge base is initialized
+        if not global_knowledge_base["initialized"]:
+            print(f"❌ Global knowledge base not initialized")
+            raise HTTPException(status_code=503, detail="Global knowledge base not initialized. Please try again later.")
+        
+        # Get or create session (for tracking purposes only)
+        session_id = await get_or_create_session(session_id, api_key)
         print(f"✅ Session created/retrieved: {session_id}")
         
         # Save uploaded file temporarily
@@ -501,60 +687,24 @@ async def upload_pdf(
             
             print(f"✅ Created {len(chunks)} chunks")
             
-            # Ensure vector database has proper embedding model
-            print(f"🧠 Ensuring vector database has proper embedding model...")
-            vector_db = session["vector_db"]
-            
-            # Make sure the vector database has the embedding model with API key
-            if not hasattr(vector_db, "embedding_model") or not vector_db.embedding_model:
-                embedding_model = EmbeddingModel(api_key=api_key)
-                vector_db.embedding_model = embedding_model
-                print(f"✅ Created new embedding model for vector database")
-            elif not hasattr(vector_db.embedding_model, "openai_api_key") or not vector_db.embedding_model.openai_api_key:
-                embedding_model = EmbeddingModel(api_key=api_key)
-                vector_db.embedding_model = embedding_model
-                print(f"✅ Updated embedding model with API key")
-            else:
-                print(f"✅ Vector database already has proper embedding model")
-            
-            print(f"💾 Processing chunks and storing embeddings...")
-            # Process chunks and add to vector database
-            for i, chunk in enumerate(chunks):
-                print(f"🔄 Processing chunk {i+1}/{len(chunks)}")
-                try:
-                    embedding = vector_db.embedding_model.get_embedding(chunk)
-                    metadata = {
-                        "filename": file.filename,
-                        "chunk_index": i,
-                        "upload_time": datetime.now().isoformat()
-                    }
-                    vector_db.insert(chunk, np.array(embedding), metadata)
-                    print(f"✅ Chunk {i+1} processed and stored")
-                except Exception as chunk_error:
-                    print(f"❌ Error processing chunk {i+1}: {chunk_error}")
-                    raise chunk_error
-            
-            print(f"✅ All chunks processed successfully")
-            
-            # Update session info
-            session["documents"].append(file.filename)
-            
-            # Initialize RAG pipeline for this session
-            print(f"🤖 Initializing RAG pipeline...")
-            chat_model = ChatOpenAI(model_name="gpt-4o-mini", api_key=api_key)
-            session["rag_pipeline"] = RAGPipeline(
-                llm=chat_model,
-                vector_db=vector_db,
-                response_style="detailed"
+            # Add document to global knowledge base
+            success = await add_document_to_global_kb(
+                chunks=chunks,
+                filename=file.filename,
+                api_key=api_key,
+                doc_type="pdf"
             )
             
-            print(f"✅ RAG pipeline initialized")
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to add document to global knowledge base")
+            
+            print(f"✅ Successfully added {file.filename} to global knowledge base")
             
             return UploadResponse(
                 success=True,
-                message=f"Successfully processed {file.filename} into {len(chunks)} chunks",
+                message=f"Successfully processed {file.filename} into {len(chunks)} chunks and added to global knowledge base",
                 session_id=session_id,
-                document_count=len(session["documents"]),
+                document_count=len(global_knowledge_base["user_uploaded_documents"]),
                 filename=file.filename
             )
             
@@ -581,10 +731,10 @@ async def upload_document(
 ):
     """
     Enhanced document upload endpoint that supports multiple file types
-    for regulatory reporting while maintaining PDF compatibility.
+    for regulatory reporting and adds documents to the global knowledge base.
     """
     try:
-        print(f"📁 Starting multi-document upload: {file.filename}")
+        print(f"📁 Starting multi-document upload to global knowledge base: {file.filename}")
         
         # Initialize multi-document processor
         processor = MultiDocumentProcessor()
@@ -600,9 +750,13 @@ async def upload_document(
         
         print(f"✅ File validation passed")
         
-        # Get or create session with API key
-        session_id = get_or_create_session(session_id, api_key)
-        session = user_sessions[session_id]
+        # Check if global knowledge base is initialized
+        if not global_knowledge_base["initialized"]:
+            print(f"❌ Global knowledge base not initialized")
+            raise HTTPException(status_code=503, detail="Global knowledge base not initialized. Please try again later.")
+        
+        # Get or create session (for tracking purposes only)
+        session_id = await get_or_create_session(session_id, api_key)
         print(f"✅ Session created/retrieved: {session_id}")
         
         # Save uploaded file temporarily with appropriate extension
@@ -625,87 +779,48 @@ async def upload_document(
             
             print(f"✅ Extracted {len(processed_docs)} processed chunks")
             
-            # Ensure vector database has proper embedding model
-            print(f"🧠 Ensuring vector database has proper embedding model...")
-            vector_db = session["vector_db"]
-            
-            # Make sure the vector database has the embedding model with API key
-            if not hasattr(vector_db, "embedding_model") or not vector_db.embedding_model:
-                embedding_model = EmbeddingModel(api_key=api_key)
-                vector_db.embedding_model = embedding_model
-                print(f"✅ Created new embedding model for vector database")
-            elif not hasattr(vector_db.embedding_model, "openai_api_key") or not vector_db.embedding_model.openai_api_key:
-                embedding_model = EmbeddingModel(api_key=api_key)
-                vector_db.embedding_model = embedding_model
-                print(f"✅ Updated embedding model with API key")
-            
-            print(f"💾 Processing chunks and storing embeddings...")
-            
-            # Process chunks and add to vector database
-            chunks_created = 0
+            # Extract text chunks and metadata
+            chunks = []
             doc_type = ""
             regulatory_type = ""
+            metadata_extra = {}
             
             for i, processed_doc in enumerate(processed_docs):
-                print(f"🔄 Processing chunk {i+1}/{len(processed_docs)}")
-                try:
-                    # Get embedding for the content
-                    embedding = vector_db.embedding_model.get_embedding(processed_doc.content)
-                    
-                    # Enhanced metadata with regulatory context
-                    enhanced_metadata = processed_doc.metadata.copy()
-                    enhanced_metadata.update({
-                        "upload_time": datetime.now().isoformat(),
+                chunks.append(processed_doc.content)
+                
+                # Track document type and regulatory type for response
+                if i == 0:  # Use first chunk's metadata
+                    doc_type = processed_doc.doc_type
+                    regulatory_type = processed_doc.metadata.get("regulatory_type", "")
+                    metadata_extra = {
                         "source_location": processed_doc.source_location,
-                        "processed_doc_type": processed_doc.doc_type
-                    })
-                    
-                    # Store in vector database
-                    vector_db.insert(processed_doc.content, np.array(embedding), enhanced_metadata)
-                    chunks_created += 1
-                    
-                    # Track document type and regulatory type for response
-                    if i == 0:  # Use first chunk's metadata
-                        doc_type = processed_doc.doc_type
-                        regulatory_type = processed_doc.metadata.get("regulatory_type", "")
-                    
-                    print(f"✅ Chunk {i+1} processed and stored")
-                except Exception as chunk_error:
-                    print(f"❌ Error processing chunk {i+1}: {chunk_error}")
-                    raise chunk_error
+                        "processed_doc_type": processed_doc.doc_type,
+                        "regulatory_type": regulatory_type
+                    }
             
-            print(f"✅ All {chunks_created} chunks processed successfully")
-            
-            # Update session info
-            session["documents"].append(file.filename)
-            
-            # Initialize or update RAG pipeline for this session
-            print(f"🤖 Initializing enhanced RAG pipeline...")
-            chat_model = ChatOpenAI(model_name="gpt-4o-mini", api_key=api_key)
-            base_rag_pipeline = RAGPipeline(
-                llm=chat_model,
-                vector_db=vector_db,
-                response_style="detailed"
+            # Add document to global knowledge base
+            success = await add_document_to_global_kb(
+                chunks=chunks,
+                filename=file.filename,
+                api_key=api_key,
+                doc_type=doc_type,
+                metadata_extra=metadata_extra
             )
             
-            # Create regulatory enhancer
-            regulatory_enhancer = RegulatoryRAGEnhancer(base_rag_pipeline)
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to add document to global knowledge base")
             
-            # Store both in session for flexibility
-            session["rag_pipeline"] = base_rag_pipeline
-            session["regulatory_enhancer"] = regulatory_enhancer
-            
-            print(f"✅ Enhanced RAG pipeline initialized")
+            print(f"✅ Successfully added {file.filename} to global knowledge base")
             
             return MultiDocumentUploadResponse(
                 success=True,
-                message=f"Successfully processed {file.filename} ({doc_type}) into {chunks_created} chunks",
+                message=f"Successfully processed {file.filename} ({doc_type}) into {len(chunks)} chunks and added to global knowledge base",
                 session_id=session_id,
-                document_count=len(session["documents"]),
+                document_count=len(global_knowledge_base["user_uploaded_documents"]),
                 filename=file.filename,
                 doc_type=doc_type,
                 regulatory_type=regulatory_type,
-                chunks_created=chunks_created
+                chunks_created=len(chunks)
             )
             
         finally:
@@ -729,73 +844,43 @@ async def rag_chat(request: RAGChatRequest):
         print(f"🔍 RAG chat request received:")
         print(f"  - Session ID: {request.session_id}")
         print(f"  - User message: {request.user_message}")
-        print(f"  - Available sessions: {list(user_sessions.keys())}")
+        print(f"  - Global KB initialized: {global_knowledge_base['initialized']}")
         
-        # Check if session exists, if not create one with global knowledge base access
-        if request.session_id not in user_sessions:
-            print(f"🔧 Session {request.session_id} not found, checking for global knowledge base...")
-            
-            # Try to create session with global knowledge base if available
-            if global_knowledge_base.get("initialized", False):
-                print(f"🌍 Creating new session with global knowledge base access")
-                session_id = get_or_create_session(request.session_id, request.api_key)
-                # The session is now created and should have global KB access
-            else:
-                print(f"❌ No session and global knowledge base not initialized")
-                raise HTTPException(status_code=404, detail="No active session. Please upload a PDF first or wait for global knowledge base to initialize.")
+        # Check if global knowledge base is initialized
+        if not global_knowledge_base["initialized"]:
+            print(f"❌ Global knowledge base not initialized")
+            raise HTTPException(status_code=503, detail="Global knowledge base not initialized. Please try again later.")
         
-        session = user_sessions[request.session_id]
-        user_doc_count = len(session['documents'])
-        global_kb = session.get('global_kb')
-        global_doc_count = len(global_kb['documents']) if global_kb else 0
+        # Get or create session (for tracking purposes only)
+        session_id = await get_or_create_session(request.session_id, request.api_key)
+        print(f"✅ Session created/retrieved: {session_id}")
         
-        print(f"✅ Found session with {user_doc_count} user documents + {global_doc_count} global documents")
+        # Always use global knowledge base
+        global_kb = await get_global_knowledge_base(request.api_key)
+        if not global_kb:
+            print(f"❌ Could not get global knowledge base")
+            raise HTTPException(status_code=500, detail="Could not access global knowledge base")
         
-        # Check if session has documents (user documents OR global knowledge base)
-        if not session["documents"] and not session.get("has_global_kb", False):
-            print(f"❌ No documents in session and no global knowledge base")
-            raise HTTPException(status_code=400, detail="No documents found in session. Please upload a document first or wait for global knowledge base to initialize.")
+        total_docs = len(global_knowledge_base["documents"]) + len(global_knowledge_base["user_uploaded_documents"])
+        print(f"✅ Using global knowledge base with {total_docs} total documents")
+        print(f"  - Original documents: {len(global_knowledge_base['documents'])}")
+        print(f"  - User uploaded documents: {len(global_knowledge_base['user_uploaded_documents'])}")
         
-        # Determine which RAG pipeline to use
-        rag_pipeline = None
-        vector_db = None
-        
-        # Prioritize global knowledge base if user has no documents
-        if session.get("has_global_kb", False) and global_kb and not session["documents"]:
-            print(f"🌍 Using global knowledge base for RAG")
-            rag_pipeline = global_kb["rag_pipeline"]
-            vector_db = global_kb["vector_db"]
-        elif session["rag_pipeline"]:
-            print(f"👤 Using user session RAG pipeline")
-            rag_pipeline = session["rag_pipeline"]
-            vector_db = session["vector_db"]
-        elif global_kb:
-            print(f"🌍 Falling back to global knowledge base")
-            rag_pipeline = global_kb["rag_pipeline"]
-            vector_db = global_kb["vector_db"]
+        rag_pipeline = global_kb["rag_pipeline"]
+        vector_db = global_kb["vector_db"]
         
         if not rag_pipeline:
-            print(f"❌ No RAG pipeline available")
-            raise HTTPException(status_code=500, detail="RAG pipeline not initialized")
+            print(f"❌ No RAG pipeline available in global knowledge base")
+            raise HTTPException(status_code=500, detail="RAG pipeline not initialized in global knowledge base")
         
-        # Ensure the vector database has a proper embedding model
-        if not hasattr(vector_db, "embedding_model") or not vector_db.embedding_model:
-            print(f"🔧 Initializing embedding model for RAG search...")
-            embedding_model = EmbeddingModel(api_key=request.api_key)
-            vector_db.embedding_model = embedding_model
-        elif not hasattr(vector_db.embedding_model, "openai_api_key") or not vector_db.embedding_model.openai_api_key:
-            print(f"🔧 Updating embedding model with API key for RAG search...")
-            embedding_model = EmbeddingModel(api_key=request.api_key)
-            vector_db.embedding_model = embedding_model
-        
-        print(f"✅ RAG pipeline ready")
+        print(f"✅ RAG pipeline ready from global knowledge base")
         
         # Create streaming response
         async def generate():
             try:
                 # Run RAG pipeline to get context and generate response
                 if request.use_rag:
-                    print(f"🔎 Searching documents for: {request.user_message}")
+                    print(f"🔎 Searching global knowledge base for: {request.user_message}")
                     # Search for relevant documents
                     search_results = rag_pipeline.search_documents(
                         query=request.user_message,
@@ -803,7 +888,7 @@ async def rag_chat(request: RAGChatRequest):
                         return_metadata=True
                     )
                     
-                    print(f"📋 Found {len(search_results)} search results")
+                    print(f"📋 Found {len(search_results)} search results from global KB")
                     
                     if search_results:
                         # Format context from search results
@@ -824,8 +909,8 @@ async def rag_chat(request: RAGChatRequest):
                         # Stream the response
                         yield response
                     else:
-                        print(f"❌ No relevant search results found")
-                        yield "I couldn't find relevant information in the uploaded documents to answer your question."
+                        print(f"❌ No relevant search results found in global knowledge base")
+                        yield "I couldn't find relevant information in the knowledge base to answer your question."
                 else:
                     # Fallback to regular chat without RAG
                     client = OpenAI(api_key=request.api_key)
@@ -862,6 +947,7 @@ async def regulatory_rag_chat(request: RegulatoryRAGRequest):
     """
     Enhanced RAG chat endpoint with regulatory-specific features including
     role-based responses, document type filtering, and enhanced citations.
+    Always uses the global knowledge base.
     """
     try:
         print(f"🏛️ Regulatory RAG chat request received:")
@@ -870,116 +956,78 @@ async def regulatory_rag_chat(request: RegulatoryRAGRequest):
         print(f"  - User role: {request.user_role}")
         print(f"  - Doc types filter: {request.doc_types}")
         print(f"  - Priority sources: {request.priority_sources}")
+        print(f"  - Global KB initialized: {global_knowledge_base['initialized']}")
         
-        # Check if session exists, if not create one with global knowledge base access
-        if request.session_id not in user_sessions:
-            print(f"🔧 Session {request.session_id} not found, checking for global knowledge base...")
-            
-            # Try to create session with global knowledge base if available
-            if global_knowledge_base.get("initialized", False):
-                print(f"🌍 Creating new session with global knowledge base access")
-                session_id = get_or_create_session(request.session_id, request.api_key)
-                # The session is now created and should have global KB access
-            else:
-                print(f"❌ No session and global knowledge base not initialized")
-                raise HTTPException(status_code=404, detail="No active session. Please upload documents first or wait for global knowledge base to initialize.")
+        # Check if global knowledge base is initialized
+        if not global_knowledge_base["initialized"]:
+            print(f"❌ Global knowledge base not initialized")
+            raise HTTPException(status_code=503, detail="Global knowledge base not initialized. Please try again later.")
         
-        session = user_sessions[request.session_id]
-        user_doc_count = len(session['documents'])
-        global_kb = session.get('global_kb')
-        global_doc_count = len(global_kb['documents']) if global_kb else 0
+        # Get or create session (for tracking purposes only)
+        session_id = await get_or_create_session(request.session_id, request.api_key)
+        print(f"✅ Session created/retrieved: {session_id}")
         
-        print(f"✅ Found session with {user_doc_count} user documents + {global_doc_count} global documents")
+        # Always use global knowledge base
+        global_kb = await get_global_knowledge_base(request.api_key)
+        if not global_kb:
+            print(f"❌ Could not get global knowledge base")
+            raise HTTPException(status_code=500, detail="Could not access global knowledge base")
         
-        # Check if session has documents (user documents OR global knowledge base)
-        if not session["documents"] and not session.get("has_global_kb", False):
-            print(f"❌ No documents in session and no global knowledge base")
-            raise HTTPException(status_code=400, detail="No documents found in session. Please upload documents first or wait for global knowledge base to initialize.")
+        total_docs = len(global_knowledge_base["documents"]) + len(global_knowledge_base["user_uploaded_documents"])
+        print(f"✅ Using global knowledge base with {total_docs} total documents")
         
-        # Determine which RAG pipeline to use
-        regulatory_enhancer = None
-        base_rag_pipeline = None
-        
-        # Prioritize global knowledge base if user has no documents
-        if session.get("has_global_kb", False) and global_kb and not session["documents"]:
-            print(f"🌍 Using global knowledge base for regulatory RAG")
-            regulatory_enhancer = global_kb.get("regulatory_enhancer")
-            base_rag_pipeline = global_kb.get("rag_pipeline")
-        elif session.get("regulatory_enhancer"):
-            print(f"👤 Using user session regulatory enhancer")
-            regulatory_enhancer = session.get("regulatory_enhancer")
-            base_rag_pipeline = session.get("rag_pipeline")
-        elif global_kb:
-            print(f"🌍 Falling back to global knowledge base for regulatory RAG")
-            regulatory_enhancer = global_kb.get("regulatory_enhancer")
-            base_rag_pipeline = global_kb.get("rag_pipeline")
+        regulatory_enhancer = global_kb.get("regulatory_enhancer")
+        base_rag_pipeline = global_kb.get("rag_pipeline")
         
         if not regulatory_enhancer and not base_rag_pipeline:
-            print(f"❌ No RAG pipeline available")
-            raise HTTPException(status_code=500, detail="RAG pipeline not initialized")
+            print(f"❌ No RAG pipeline available in global knowledge base")
+            raise HTTPException(status_code=500, detail="RAG pipeline not initialized in global knowledge base")
+        
+        print(f"✅ Regulatory RAG pipeline ready from global knowledge base")
         
         # Create streaming response
         async def generate():
             try:
-                if regulatory_enhancer and request.use_rag:
-                    print(f"🏛️ Using enhanced regulatory RAG")
+                if request.use_rag:
+                    print(f"🔎 Searching global knowledge base with regulatory enhancement...")
                     
-                    # Check if this is a regulatory query
-                    is_regulatory = regulatory_enhancer.is_regulatory_query(request.user_message)
-                    print(f"📊 Regulatory query detected: {is_regulatory}")
-                    
-                    # Run enhanced RAG pipeline
-                    rag_result = regulatory_enhancer.run_enhanced_rag(
-                        query=request.user_message,
-                        user_role=request.user_role,
-                        k=4,
-                        doc_types=request.doc_types,
-                        priority_sources=request.priority_sources
-                    )
-                    
-                    print(f"📋 Enhanced RAG result keys: {list(rag_result.keys())}")
-                    
-                    response = rag_result.get("response", "")
-                    sources = rag_result.get("sources", [])
-                    
-                    # Stream the response
-                    yield response
-                    
-                    # Optionally append source information
-                    if sources:
-                        yield "\n\n---\n**Sources:**\n"
-                        for i, source in enumerate(sources[:3], 1):  # Limit to top 3 sources
-                            yield f"{i}. {source.get('source_location', 'Unknown')}\n"
-                    
-                elif base_rag_pipeline and request.use_rag:
-                    print(f"🔍 Falling back to base RAG pipeline")
-                    
-                    # Use base RAG pipeline functionality
-                    search_results = base_rag_pipeline.search_documents(
-                        query=request.user_message,
-                        k=4,
-                        return_metadata=True
-                    )
-                    
-                    if search_results:
-                        context, metadata_info = base_rag_pipeline.format_context(search_results)
-                        response = base_rag_pipeline.generate_response(
+                    if regulatory_enhancer:
+                        # Use regulatory enhancer for better results
+                        response = regulatory_enhancer.enhanced_rag_query(
                             query=request.user_message,
-                            context=context,
-                            metadata_info=metadata_info
+                            user_role=request.user_role,
+                            doc_types=request.doc_types,
+                            priority_sources=request.priority_sources,
+                            k=4
                         )
+                        
+                        print(f"💼 Generated regulatory-enhanced response")
                         yield response
                     else:
-                        yield "I couldn't find relevant information in the uploaded documents to answer your question."
-                
+                        # Fallback to base RAG pipeline
+                        search_results = base_rag_pipeline.search_documents(
+                            query=request.user_message,
+                            k=4,
+                            return_metadata=True
+                        )
+                        
+                        if search_results:
+                            context, metadata_info = base_rag_pipeline.format_context(search_results)
+                            response = base_rag_pipeline.generate_response(
+                                query=request.user_message,
+                                context=context,
+                                metadata_info=metadata_info
+                            )
+                            yield response
+                        else:
+                            yield "I couldn't find relevant regulatory information in the knowledge base to answer your question."
                 else:
                     # Fallback to regular chat without RAG
-                    print(f"💬 Falling back to regular chat")
                     client = OpenAI(api_key=request.api_key)
                     stream = client.chat.completions.create(
                         model=request.model,
                         messages=[
-                            {"role": "system", "content": "You are a helpful assistant."},
+                            {"role": "system", "content": "You are a helpful regulatory compliance assistant."},
                             {"role": "user", "content": request.user_message}
                         ],
                         stream=True
@@ -1053,11 +1101,49 @@ async def get_session_info(session_id: str):
 
 @app.delete("/api/session/{session_id}")
 async def delete_session(session_id: str):
-    if session_id not in user_sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    del user_sessions[session_id]
-    return {"success": True, "message": "Session deleted successfully"}
+    """Delete a user session"""
+    if session_id in user_sessions:
+        del user_sessions[session_id]
+        return {"message": f"Session {session_id} deleted successfully"}
+    raise HTTPException(status_code=404, detail="Session not found")
+
+# New endpoint for deleting user-uploaded documents
+@app.delete("/api/document/{filename}")
+async def delete_document(filename: str, api_key: str):
+    """
+    Delete a user-uploaded document from the global knowledge base.
+    Original documents cannot be deleted.
+    """
+    try:
+        print(f"🗑️ Delete request for document: {filename}")
+        
+        # Check if global knowledge base is initialized
+        if not global_knowledge_base["initialized"]:
+            print(f"❌ Global knowledge base not initialized")
+            raise HTTPException(status_code=503, detail="Global knowledge base not initialized")
+        
+        # Attempt to remove the document
+        success = await remove_document_from_global_kb(filename, api_key)
+        
+        if success:
+            print(f"✅ Successfully deleted {filename} from global knowledge base")
+            return {
+                "success": True,
+                "message": f"Successfully deleted {filename} from global knowledge base",
+                "remaining_user_documents": global_knowledge_base["user_uploaded_documents"],
+                "total_documents": len(global_knowledge_base["documents"]) + len(global_knowledge_base["user_uploaded_documents"])
+            }
+        else:
+            raise HTTPException(status_code=400, detail=f"Could not delete {filename}. Either it doesn't exist, is not a user-uploaded document, or an error occurred.")
+            
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        print(f"❌ Unexpected error in delete_document: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error deleting document: {str(e)}")
 
 # Health check endpoint
 @app.get("/api/health")
@@ -1112,32 +1198,35 @@ async def health_check():
 # Add new endpoints for global knowledge base
 @app.get("/api/global-knowledge-base")
 async def get_global_knowledge_base_info():
-    """Get information about the pre-loaded global knowledge base"""
-    global global_knowledge_base
-    
+    """Get information about the global knowledge base status and contents"""
     if not global_knowledge_base["initialized"]:
         return {
-            "status": "not_initialized",
+            "status": "not_initialized" if global_knowledge_base["error"] is None else "error",
             "initialized": False,
-            "error": "Global knowledge base not initialized"
+            "error": global_knowledge_base["error"],
+            "documents": [],
+            "user_uploaded_documents": [],
+            "document_count": 0,
+            "chunk_count": 0,
+            "description": "Global knowledge base is not yet initialized"
         }
     
-    if global_knowledge_base["error"]:
-        return {
-            "status": "error",
-            "initialized": True,
-            "error": global_knowledge_base["error"],
-            "documents": []
-        }
+    total_chunks = len(global_knowledge_base.get("chunked_documents", []))
+    total_original_docs = len(global_knowledge_base["documents"])
+    total_user_docs = len(global_knowledge_base["user_uploaded_documents"])
+    total_docs = total_original_docs + total_user_docs
     
     return {
         "status": "ready",
         "initialized": True,
         "error": None,
         "documents": global_knowledge_base["documents"],
-        "document_count": len(global_knowledge_base["documents"]),
-        "chunk_count": len(global_knowledge_base.get("chunked_documents", [])),
-        "description": "Pre-loaded regulatory documents including Basel III, COREP, FINREP templates, and data lineage examples"
+        "user_uploaded_documents": global_knowledge_base["user_uploaded_documents"],
+        "document_count": total_docs,
+        "original_document_count": total_original_docs,
+        "user_uploaded_document_count": total_user_docs,
+        "chunk_count": total_chunks,
+        "description": f"Global knowledge base with {total_original_docs} original documents, {total_user_docs} user-uploaded documents, and {total_chunks} total chunks"
     }
 
 # Startup event to initialize global knowledge base
@@ -1147,6 +1236,8 @@ async def startup_event():
     print("🚀 Application starting up...")
     await initialize_global_knowledge_base()
     print("✅ Application startup complete")
+
+
 
 # Entry point for running the application directly
 if __name__ == "__main__":

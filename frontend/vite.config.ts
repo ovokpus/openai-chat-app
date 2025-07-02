@@ -18,6 +18,27 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     emptyOutDir: true,
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // React vendor chunk
+          'react-vendor': ['react', 'react-dom'],
+          // Markdown processing chunk
+          'markdown-vendor': [
+            'react-markdown', 
+            'remark-gfm', 
+            'remark-math', 
+            'rehype-katex'
+          ],
+          // Math rendering chunk
+          'katex-vendor': ['katex'],
+          // Icons chunk
+          'icons-vendor': ['@heroicons/react']
+        }
+      }
+    },
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000
   }
 })

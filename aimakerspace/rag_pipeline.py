@@ -31,14 +31,14 @@ class RAGPipeline:
         # System prompt for RAG responses
         self.system_prompt = SystemRolePrompt("""You are a helpful assistant that answers questions based on provided document context. 
 
-When answering:
-1. Use ONLY the information provided in the context
-2. If the context doesn't contain relevant information, clearly state that
-3. Cite specific parts of the context when possible
-4. Be accurate and don't make assumptions beyond the provided context
-5. Format your response clearly with proper markdown
+                        When answering:
+                        1. Use ONLY the information provided in the context
+                        2. If the context doesn't contain relevant information, clearly state that
+                        3. Cite specific parts of the context when possible
+                        4. Be accurate and don't make assumptions beyond the provided context
+                        5. Format your response clearly with proper markdown
 
-Context format: Each piece of context will be marked with [Source: filename] followed by the content.""")
+                        Context format: Each piece of context will be marked with [Source: filename] followed by the content.""")
 
     def search_documents(
         self, 

@@ -1,4 +1,5 @@
-import type { Message, UploadResponse, SessionInfo, RAGChatRequest, MultiDocumentUploadResponse } from '../types'
+import type { Message, UploadResponse, SessionInfo, RAGChatRequest, MultiDocumentUploadResponse, GlobalKnowledgeBaseInfo } from '../types'
+import { logger, logApiRequest } from '../utils/logger'
 
 const DEVELOPER_MESSAGE = `You are a helpful AI assistant. When providing responses:
 
@@ -110,7 +111,7 @@ export const sendRAGMessage = async (
     use_rag: request.useRag !== false
   }
   
-  console.log('Sending RAG request:', requestBody) // Debug log
+  logApiRequest('/api/rag-chat', requestBody)
   
   const response = await fetch('/api/rag-chat', {
     method: 'POST',
@@ -122,7 +123,7 @@ export const sendRAGMessage = async (
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('RAG request failed:', response.status, errorText) // Debug log
+    logger.error('RAG request failed:', response.status, errorText)
     throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
   }
 
@@ -146,5 +147,27 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
   
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`)
+  }
+}
+
+// Global Knowledge Base API functions
+export const getGlobalKnowledgeBase = async (): Promise<GlobalKnowledgeBaseInfo> => {
+  const response = await fetch('/api/global-knowledge-base')
+  
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`)
+  }
+  
+  return response.json()
+}
+
+export const deleteDocument = async (filename: string, apiKey: string): Promise<void> => {
+  const response = await fetch(`/api/document/${encodeURIComponent(filename)}?api_key=${encodeURIComponent(apiKey)}`, {
+    method: 'DELETE'
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || `HTTP error! status: ${response.status}`)
   }
 } 
