@@ -36,7 +36,7 @@ class GlobalKnowledgeBaseService:
             return
         
         try:
-            print("🚀 Initializing global knowledge base with regulatory documents...")
+            print("🚀 Initializing global knowledge base...")
             
             # Path to organized knowledge base folder - robust path detection for bundled files
             current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -64,71 +64,78 @@ class GlobalKnowledgeBaseService:
                     print(f"   - {path}: {'EXISTS' if os.path.exists(path) else 'NOT FOUND'}")
                 print(f"   - Current working directory: {os.getcwd()}")
                 print(f"   - Current file directory: {current_dir}")
+                print("🏗️ Initializing empty global knowledge base (user uploads only)")
                 self.global_knowledge_base["initialized"] = True
-                self.global_knowledge_base["error"] = f"Knowledge base folder not found (tried {len(potential_paths)} locations)"
+                self.global_knowledge_base["error"] = None  # Not an error, just no pre-loaded docs
                 return
             
-            # Get list of supported files from organized subfolders
-            supported_extensions = ['.pdf', '.xlsx', '.xls', '.docx', '.pptx', '.ppt', '.csv', '.sql', '.py', '.js', '.ts', '.md', '.txt']
-            
-            document_files = []
-            # Scan through all regulatory document subfolders
-            for subfolder in os.listdir(knowledge_base_path):
-                subfolder_path = os.path.join(knowledge_base_path, subfolder)
-                if os.path.isdir(subfolder_path):
-                    for file in os.listdir(subfolder_path):
-                        if any(file.lower().endswith(ext) for ext in supported_extensions):
-                            document_files.append(os.path.join(subfolder_path, file))
-            
-            if not document_files:
-                print("📂 No supported documents found in knowledge base folders")
-                self.global_knowledge_base["initialized"] = True
-                return
-            
-            print(f"📄 Found {len(document_files)} documents to process")
-            
-            # Process documents using MultiDocumentProcessor with text chunking for smaller chunks
-            multi_doc_processor = MultiDocumentProcessor(enable_text_chunking=True, chunk_size=800)
-            all_chunks = []
-            
-            for doc_path in document_files:
-                try:
-                    filename = os.path.basename(doc_path)
-                    print(f"📄 Processing {filename}...")
-                    
-                    processed_docs = multi_doc_processor.process_document(doc_path, filename)
-                    
-                    for doc in processed_docs:
-                        chunk_text = doc.content
-                        metadata = doc.metadata.copy()
-                        metadata.update({
-                            "source": "global_kb",
-                            "doc_type": doc.doc_type,
-                            "source_location": doc.source_location
-                        })
-                        
-                        all_chunks.append({
-                            "text": chunk_text,
-                            "metadata": metadata
-                        })
-                    
-                    print(f"✅ Processed {filename}: {len(processed_docs)} chunks")
-                    self.global_knowledge_base["documents"].append(filename)
-                    
-                except Exception as e:
-                    print(f"❌ Failed to process {doc_path}: {e}")
-                    continue
-            
-            # Store chunked documents for later re-initialization
-            self.global_knowledge_base["chunked_documents"] = all_chunks
-            
-            print(f"📚 Global knowledge base initialized with {len(all_chunks)} total chunks from {len(document_files)} documents")
-            self.global_knowledge_base["initialized"] = True
+            # Process documents if knowledge base folder exists
+            await self._process_knowledge_base_documents(knowledge_base_path)
             
         except Exception as e:
             print(f"❌ Failed to initialize global knowledge base: {e}")
-            self.global_knowledge_base["error"] = str(e)
+            print("🏗️ Falling back to user-upload-only mode")
+            self.global_knowledge_base["error"] = None  # Don't mark as error
             self.global_knowledge_base["initialized"] = True
+    
+    async def _process_knowledge_base_documents(self, knowledge_base_path: str):
+        """Process documents from the knowledge base folder"""
+        # Get list of supported files from organized subfolders
+        supported_extensions = ['.pdf', '.xlsx', '.xls', '.docx', '.pptx', '.ppt', '.csv', '.sql', '.py', '.js', '.ts', '.md', '.txt']
+        
+        document_files = []
+        # Scan through all regulatory document subfolders
+        for subfolder in os.listdir(knowledge_base_path):
+            subfolder_path = os.path.join(knowledge_base_path, subfolder)
+            if os.path.isdir(subfolder_path):
+                for file in os.listdir(subfolder_path):
+                    if any(file.lower().endswith(ext) for ext in supported_extensions):
+                        document_files.append(os.path.join(subfolder_path, file))
+        
+        if not document_files:
+            print("📂 No supported documents found in knowledge base folders")
+            self.global_knowledge_base["initialized"] = True
+            return
+        
+        print(f"📄 Found {len(document_files)} documents to process")
+        
+        # Process documents using MultiDocumentProcessor with text chunking for smaller chunks
+        multi_doc_processor = MultiDocumentProcessor(enable_text_chunking=True, chunk_size=800)
+        all_chunks = []
+        
+        for doc_path in document_files:
+            try:
+                filename = os.path.basename(doc_path)
+                print(f"📄 Processing {filename}...")
+                
+                processed_docs = multi_doc_processor.process_document(doc_path, filename)
+                
+                for doc in processed_docs:
+                    chunk_text = doc.content
+                    metadata = doc.metadata.copy()
+                    metadata.update({
+                        "source": "global_kb",
+                        "doc_type": doc.doc_type,
+                        "source_location": doc.source_location
+                    })
+                    
+                    all_chunks.append({
+                        "text": chunk_text,
+                        "metadata": metadata
+                    })
+                
+                print(f"✅ Processed {filename}: {len(processed_docs)} chunks")
+                self.global_knowledge_base["documents"].append(filename)
+                
+            except Exception as e:
+                print(f"❌ Failed to process {doc_path}: {e}")
+                continue
+        
+        # Store chunked documents for later re-initialization
+        self.global_knowledge_base["chunked_documents"] = all_chunks
+        
+        print(f"📚 Global knowledge base initialized with {len(all_chunks)} total chunks from {len(document_files)} documents")
+        self.global_knowledge_base["initialized"] = True
     
     async def get_global_knowledge_base(self, api_key: str):
         """Get or create global knowledge base with API key"""
@@ -387,8 +394,19 @@ class GlobalKnowledgeBaseService:
         user_docs = self.global_knowledge_base["user_uploaded_documents"]
         chunk_count = len(self.global_knowledge_base["chunked_documents"])
         
+        # Determine status and description based on content
+        if len(original_docs) == 0 and len(user_docs) == 0:
+            status = "ready"
+            description = "Global knowledge base ready for document uploads (no pre-loaded documents available)"
+        elif len(original_docs) == 0:
+            status = "ready"
+            description = f"Global knowledge base ready with {len(user_docs)} user uploads ({chunk_count} chunks total)"
+        else:
+            status = "ready"
+            description = f"Global knowledge base ready with {len(original_docs)} regulatory documents and {len(user_docs)} user uploads ({chunk_count} chunks total)"
+        
         return {
-            "status": "ready",
+            "status": status,
             "initialized": True,
             "error": None,
             "documents": original_docs,
@@ -397,5 +415,5 @@ class GlobalKnowledgeBaseService:
             "original_document_count": len(original_docs),
             "user_uploaded_document_count": len(user_docs),
             "chunk_count": chunk_count,
-            "description": f"Global knowledge base ready with {len(original_docs)} regulatory documents and {len(user_docs)} user uploads ({chunk_count} chunks total)"
+            "description": description
         } 
