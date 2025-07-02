@@ -15,7 +15,10 @@ This document provides instructions for merging feature branches into the main b
 - Production-ready with comprehensive error handling
 
 🔄 **feature/regulatory-reporting-copilot** - READY TO MERGE
-- UI improvements: RAG Mode button repositioned for better alignment
+- UI improvements: RAG Mode button repositioned for better alignment  
+- Comprehensive frontend code enhancement: replaced PDF terminology with File/Document
+- Enhanced DocumentUpload component with comprehensive file format support
+- Improved code documentation, accessibility, and mobile responsiveness
 - Comprehensive best practices review and security audit
 - Critical security issues identified requiring immediate attention
 

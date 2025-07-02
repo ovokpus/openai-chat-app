@@ -68,8 +68,14 @@ def test_pdf_upload():
         # Upload the file (even though it's not a real PDF, we can test the pipeline)
         with open('test_aws_doc.txt', 'rb') as f:
             files = {'file': ('test_aws_doc.pdf', f, 'application/pdf')}
+            # Get API key from environment variable
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                print("❌ No OPENAI_API_KEY found in environment. Skipping upload test.")
+                return None
+            
             data = {
-                'api_key': 'sk-test-key-for-debugging'  # Test key
+                'api_key': api_key
             }
             
             print("📤 Uploading test document...")
@@ -97,10 +103,16 @@ def test_pdf_upload():
 def test_rag_chat(session_id):
     """Test RAG chat functionality"""
     try:
+        # Get API key from environment variable
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            print("❌ No OPENAI_API_KEY found in environment. Skipping RAG test.")
+            return False
+            
         data = {
             "user_message": "What are the key AWS services?",
             "session_id": session_id,
-            "api_key": "sk-test-key-for-debugging",
+            "api_key": api_key,
             "use_rag": True
         }
         
@@ -131,8 +143,11 @@ def test_aimakerspace_directly():
         from aimakerspace.text_utils import CharacterTextSplitter
         import numpy as np
         
-        # Test with dummy API key
-        api_key = "sk-test-key"
+        # Skip aimakerspace test if no API key (requires real key for embeddings)
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            print("❌ No OPENAI_API_KEY found. Skipping aimakerspace test.")
+            return True
         
         print("📊 Creating components...")
         embedding_model = EmbeddingModel(api_key=api_key)
