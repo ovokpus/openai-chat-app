@@ -9,17 +9,26 @@
       "config": {
         "includeFiles": [
           "api/**",
-          "aimakerspace/**",
-          "!etl/**",
-          "!tests/**",
-          "!.venv/**",
-          "!**/*.pdf",
-          "!**/*.xlsx",
-          "!**/*.xls",
-          "!**/*.pptx",
-          "!**/*.ppt",
-          "!**/*.docx",
-          "!**/*.doc"
+          "aimakerspace/**"
+        ],
+        "excludeFiles": [
+          "**/.venv/**",
+          "**/node_modules/**",
+          "etl/**",
+          "tests/**",
+          "frontend/**",
+          "*.md",
+          "**/*.pdf",
+          "**/*.xlsx",
+          "**/*.xls", 
+          "**/*.pptx",
+          "**/*.ppt",
+          "**/*.docx",
+          "**/*.doc",
+          "**/__pycache__/**",
+          "**/.DS_Store",
+          ".git/**",
+          ".vercel/**"
         ]
       }
     }
