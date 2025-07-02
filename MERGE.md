@@ -352,3 +352,156 @@ git push origin main
 - ✅ No console errors for missing assets
 
 **Ready to merge! 🚀**
+
+# Merge Instructions for Feature Branch: regulatory-reporting-copilot
+
+## Overview
+This branch contains comprehensive enhancements to the OpenAI Chat App with RAG capabilities, focusing on regulatory reporting assistance and copilot functionality.
+
+## What's Changed
+
+### 📚 ETL Preprocessing System (Major Enhancement)
+- **New ETL Directory**: Created `etl/` with regulatory documents and preprocessing scripts
+- **Document Preprocessing**: All 25MB+ regulatory documents converted to 1.7MB JSON format
+- **Vercel Optimization**: Reduced API directory size by 92% (25MB → 1.9MB) for faster deployments
+- **Knowledge Base Sources**: 
+  - Basel III documents (927 chunks)
+  - FINREP Templates (337 chunks)
+  - COREP Templates (135 chunks)
+  - Other Regulatory docs (284 chunks)
+  - **Total**: 1,683 chunks from 9 regulatory documents
+
+### 🔧 Infrastructure Fixes
+- **Vercel Configuration**: Modernized from deprecated "builds" to functions/rewrites
+- **Deployment Optimization**: Fixed Vercel 250MB function size limit issues
+- **Path Resolution**: Added multiple fallback locations for file access
+- **Error Handling**: Enhanced debugging and error messages
+
+### 📄 Document Management Enhancements
+- **Global Knowledge Base**: Centralized document management for all users
+- **File Persistence**: User uploads saved to organized `uploaded_docs/` folder
+- **Multi-format Support**: Enhanced processing for various document types
+- **Automatic Refresh**: Knowledge base updates after upload/delete operations
+
+### 🗑️ **Delete Functionality Fix (Latest)**
+- **Fixed API Route Mismatch**: Frontend now correctly calls `/api/documents/` (plural) instead of `/api/document/` (singular)
+- **Complete File Removal**: Delete operations now remove both:
+  - Document chunks from vector database
+  - Physical files from `uploaded_docs/` folder
+  - Tracking entries from in-memory lists
+- **Timestamp Handling**: Properly finds and deletes timestamped files (e.g., `20250702_131150_filename.pptx`) based on original filenames
+- **Error Handling**: Graceful fallback if physical file deletion fails, continuing with vector database cleanup
+
+### 🎯 RAG Pipeline Improvements
+- **Regulatory Enhancement**: Specialized RAG enhancer for regulatory content
+- **Chunking Optimization**: 800-character chunks for better context
+- **Performance**: Instant knowledge base initialization from preprocessed data
+- **Scalability**: ETL approach supports adding new documents without redeployment
+
+## Technical Details
+
+### File Organization
+```
+├── etl/                          # ETL processing (development only)
+│   ├── regulatory_docs/          # Original documents (25MB+)
+│   ├── preprocess_knowledge_base.py
+│   └── README.md
+├── api/services/
+│   ├── preprocessed_knowledge_base.json  # Deployment asset (1.7MB)
+│   └── knowledge_base/
+│       └── uploaded_docs/        # User uploads with timestamps
+└── frontend/src/services/
+    └── chatApi.ts                # Fixed delete endpoint URL
+```
+
+### Delete Functionality Flow
+1. **Frontend Request**: `/api/documents/{filename}` with API key
+2. **Backend Validation**: Check if document exists in user_uploaded_documents list
+3. **Physical File Removal**: Find timestamped file in uploaded_docs/ folder
+4. **Vector Database Cleanup**: Remove all chunks with matching filename metadata
+5. **Memory Updates**: Remove from tracking lists and update references
+6. **Response**: Success confirmation with updated document counts
+
+## Merge Options
+
+### Option 1: GitHub Pull Request (Recommended)
+```bash
+# Push your changes to GitHub
+git push origin feature/regulatory-reporting-copilot
+
+# Then create a PR on GitHub:
+# 1. Go to your repository on GitHub
+# 2. Click "Compare & pull request"
+# 3. Add title: "feat: Add regulatory reporting copilot with ETL preprocessing and fix delete functionality"
+# 4. Add description with key changes
+# 5. Request review and merge
+```
+
+### Option 2: GitHub CLI
+```bash
+# Push and create PR via CLI
+git push origin feature/regulatory-reporting-copilot
+
+gh pr create \
+  --title "feat: Add regulatory reporting copilot with ETL preprocessing and fix delete functionality" \
+  --body "Major enhancements:
+- ETL preprocessing system for regulatory documents
+- Fixed delete functionality with proper file cleanup
+- Vercel deployment optimization (92% size reduction)
+- Enhanced RAG pipeline with regulatory specialization
+- Complete document management lifecycle support
+
+Ready for production deployment." \
+  --base main \
+  --head feature/regulatory-reporting-copilot
+
+# Auto-merge (if approved)
+gh pr merge --squash --auto
+```
+
+## Deployment Notes
+
+### Pre-Deployment Checklist
+- [ ] Ensure `api/services/knowledge_base/uploaded_docs/` is empty for Vercel deployment
+- [ ] Verify `preprocessed_knowledge_base.json` exists in `api/services/`
+- [ ] Confirm ETL directory remains only in development environment
+- [ ] Test delete functionality on uploaded documents
+- [ ] Validate RAG mode toggle works correctly
+
+### Vercel Environment
+- **Function Size**: Now ~1.9MB (well under 250MB limit)
+- **Knowledge Base**: Loads instantly from preprocessed JSON
+- **User Uploads**: Properly saved and deletable with timestamp handling
+- **Error Handling**: Comprehensive fallbacks for all operations
+
+## Features Ready for Production
+
+✅ **Core Functionality**
+- Chat interface with streaming responses
+- Document upload with multi-format support  
+- RAG mode toggle with comprehensive knowledge base
+- User document management (upload/delete/list)
+
+✅ **Knowledge Base**  
+- 1,683 regulatory document chunks ready for queries
+- Basel III, FINREP, COREP, and other regulatory content
+- Instant initialization from preprocessed data
+- User upload persistence and management
+
+✅ **Deployment Ready**
+- Optimized for Vercel serverless functions
+- Fast startup times with preprocessed data
+- Complete file lifecycle management
+- Production-grade error handling
+
+## Post-Merge Actions
+
+1. **Deploy to Vercel**: Automatic deployment will use optimized configuration
+2. **Test Production**: Verify all upload/delete operations work correctly  
+3. **Monitor Performance**: Check knowledge base initialization speed
+4. **User Documentation**: Update any user guides with new delete functionality
+
+---
+
+**Branch Status**: ✅ Ready to merge - All functionality tested and working
+**Deployment Impact**: 🚀 Significant performance improvement with complete feature set

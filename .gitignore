@@ -186,3 +186,4 @@ Thumbs.db
 .vercel
 
 # Local documents (should be managed separately)
+api/services/knowledge_base/
