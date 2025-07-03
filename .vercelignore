@@ -78,12 +78,3 @@ documents/
 
 # Vercel cache
 .vercel/
-
-# Exclude aimakerspace library from serverless function detection
-# These are library modules, not API endpoints
-api/aimakerspace/
-api/services/
-api/models/
-api/routers/__init__.py
-api/routers/chat.py
-api/routers/documents.py
