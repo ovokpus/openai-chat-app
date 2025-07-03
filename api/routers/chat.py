@@ -10,14 +10,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from aimakerspace.openai_utils.chatmodel import ChatOpenAI
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 class ChatRequest(BaseModel):
     user_message: str
     model: Optional[str] = "gpt-4o-mini"
     api_key: str
 
-@router.post("/api/chat")
+@router.post("/chat")
 async def chat(request: ChatRequest):
     try:
         chat_model = ChatOpenAI(api_key=request.api_key)
