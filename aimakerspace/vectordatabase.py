@@ -26,6 +26,26 @@ class VectorDatabase:
         if metadata:
             self.metadata[key] = metadata
 
+    async def ainsert(self, key: str, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+        """Insert a text by generating its embedding asynchronously."""
+        if not self.embedding_model:
+            raise ValueError("Embedding model not initialized. Please provide an embedding model with a valid API key.")
+        vector = await self.embedding_model.aget_embedding(text)
+        self.insert(key, np.array(vector), metadata)
+
+    async def ainsert_batch(self, texts: List[str], metadata_list: Optional[List[Dict[str, Any]]] = None) -> None:
+        """Insert multiple texts by generating their embeddings in parallel."""
+        if not self.embedding_model:
+            raise ValueError("Embedding model not initialized. Please provide an embedding model with a valid API key.")
+        
+        # Get embeddings for all texts in parallel
+        embeddings = await self.embedding_model.aget_embeddings(texts)
+        
+        # Insert all vectors and metadata
+        for i, (text, embedding) in enumerate(zip(texts, embeddings)):
+            metadata = metadata_list[i] if metadata_list else None
+            self.insert(text, np.array(embedding), metadata)
+
     def search(
         self,
         query_vector: np.array,
@@ -38,19 +58,18 @@ class VectorDatabase:
         ]
         return sorted(scores, key=lambda x: x[1], reverse=True)[:k]
 
-    def search_by_text(
+    async def asearch_by_text(
         self,
         query_text: str,
         k: int,
         distance_measure: Callable = cosine_similarity,
-        return_as_text: bool = False,
     ) -> List[Tuple[str, float]]:
+        """Search by text asynchronously."""
         if not self.embedding_model:
             raise ValueError("Embedding model not initialized. Please provide an embedding model with a valid API key.")
         
-        query_vector = self.embedding_model.get_embedding(query_text)
-        results = self.search(query_vector, k, distance_measure)
-        return [result[0] for result in results] if return_as_text else results
+        query_vector = await self.embedding_model.aget_embedding(query_text)
+        return self.search(np.array(query_vector), k, distance_measure)
 
     def retrieve_from_key(self, key: str) -> np.array:
         return self.vectors.get(key, None)

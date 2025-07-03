@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     compression({
-      algorithm: 'gzip',
+      algorithms: ['gzip'],
       exclude: [/\.(br)$/, /\.(gz)$/],
       deleteOriginalAssets: false,
     }),
@@ -38,8 +38,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          utils: ['axios', 'react-query'],
-        }
+        },
       }
     },
     chunkSizeWarningLimit: 1000,

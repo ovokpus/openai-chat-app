@@ -3,6 +3,9 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 import mimetypes
 from abc import ABC, abstractmethod
+import functools
+import concurrent.futures
+from io import StringIO
 
 # Import existing utilities
 from .pdf_utils import PDFFileLoader
@@ -46,6 +49,7 @@ class TextProcessor(FileProcessorBase):
         self.file_path = file_path
         self.encoding = encoding
     
+    @functools.lru_cache(maxsize=1)
     def load_documents(self) -> List[str]:
         try:
             with open(self.file_path, 'r', encoding=self.encoding) as f:
@@ -71,6 +75,7 @@ class MarkdownProcessor(FileProcessorBase):
         self.file_path = file_path
         self.encoding = encoding
     
+    @functools.lru_cache(maxsize=1)
     def load_documents(self) -> List[str]:
         try:
             with open(self.file_path, 'r', encoding=self.encoding) as f:
@@ -96,10 +101,12 @@ class CSVProcessor(FileProcessorBase):
         self.file_path = file_path
         self.encoding = encoding
     
+    @functools.lru_cache(maxsize=1)
     def load_documents(self) -> List[str]:
         try:
             import csv
             documents = []
+            buffer = StringIO()
             
             with open(self.file_path, 'r', encoding=self.encoding) as f:
                 # Try to detect delimiter
@@ -110,11 +117,22 @@ class CSVProcessor(FileProcessorBase):
                 
                 reader = csv.DictReader(f, delimiter=delimiter)
                 
+                # Process rows in batches
+                batch = []
                 for i, row in enumerate(reader):
                     # Convert row to text representation
                     row_text = "\n".join([f"{key}: {value}" for key, value in row.items() if value])
                     if row_text.strip():
-                        documents.append(f"Row {i+1}:\n{row_text}")
+                        batch.append(f"Row {i+1}:\n{row_text}")
+                    
+                    # Process batch when it reaches size 100
+                    if len(batch) >= 100:
+                        documents.extend(batch)
+                        batch = []
+                
+                # Add remaining rows
+                if batch:
+                    documents.extend(batch)
             
             return documents
         except Exception as e:
@@ -136,6 +154,7 @@ class DOCXProcessor(FileProcessorBase):
     def __init__(self, file_path: str):
         self.file_path = file_path
     
+    @functools.lru_cache(maxsize=1)
     def load_documents(self) -> List[str]:
         try:
             from docx import Document
@@ -143,12 +162,16 @@ class DOCXProcessor(FileProcessorBase):
             doc = Document(self.file_path)
             paragraphs = []
             
-            for paragraph in doc.paragraphs:
-                text = paragraph.text.strip()
-                if text:
-                    paragraphs.append(text)
+            # Process paragraphs in parallel
+            def process_paragraph(para):
+                text = para.text.strip()
+                return text if text else None
             
-            # Join paragraphs into a single document
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                processed_paragraphs = list(executor.map(process_paragraph, doc.paragraphs))
+            
+            # Filter out None values and join paragraphs
+            paragraphs = [p for p in processed_paragraphs if p]
             content = "\n\n".join(paragraphs)
             return [content] if content else []
             
@@ -201,6 +224,276 @@ class DOCXProcessor(FileProcessorBase):
                 "filename": file_path.name
             }
 
+class ExcelProcessor(FileProcessorBase):
+    """Excel file processor for .xlsx and .xls files."""
+    
+    def __init__(self, file_path: str):
+        self.file_path = file_path
+    
+    def load_documents(self) -> List[str]:
+        try:
+            import pandas as pd
+            
+            # Read all sheets from the Excel file
+            documents = []
+            with pd.ExcelFile(self.file_path) as excel_file:
+                for sheet_name in excel_file.sheet_names:
+                    try:
+                        df = pd.read_excel(excel_file, sheet_name=sheet_name)
+                        
+                        # Skip empty sheets
+                        if df.empty:
+                            continue
+                            
+                        # Convert to markdown table format
+                        markdown_table = df.to_markdown(index=False)
+                        
+                        # Create a document for this sheet
+                        sheet_content = f"Sheet: {sheet_name}\n\n{markdown_table}"
+                        documents.append(sheet_content)
+                        
+                    except Exception as e:
+                        logging.warning(f"Failed to process sheet '{sheet_name}': {e}")
+                        continue
+            
+            return documents
+            
+        except ImportError:
+            raise ImportError("pandas and openpyxl packages are required to process Excel files. Install with: pip install pandas openpyxl")
+        except Exception as e:
+            logging.error(f"Failed to load Excel file {self.file_path}: {e}")
+            raise
+    
+    def get_metadata(self) -> Dict[str, Any]:
+        try:
+            import pandas as pd
+            
+            file_path = Path(self.file_path)
+            metadata = {
+                "file_type": "excel",
+                "file_size": file_path.stat().st_size,
+                "filename": file_path.name
+            }
+            
+            # Add sheet information
+            try:
+                with pd.ExcelFile(self.file_path) as excel_file:
+                    metadata["sheet_count"] = len(excel_file.sheet_names)
+                    metadata["sheet_names"] = excel_file.sheet_names
+            except Exception as e:
+                logging.warning(f"Failed to extract Excel metadata: {e}")
+            
+            return metadata
+            
+        except ImportError:
+            file_path = Path(self.file_path)
+            return {
+                "file_type": "excel",
+                "file_size": file_path.stat().st_size,
+                "filename": file_path.name
+            }
+
+class PowerPointProcessor(FileProcessorBase):
+    """PowerPoint file processor for .pptx files."""
+    
+    def __init__(self, file_path: str):
+        self.file_path = file_path
+    
+    def load_documents(self) -> List[str]:
+        try:
+            from pptx import Presentation
+            
+            prs = Presentation(self.file_path)
+            documents = []
+            
+            for i, slide in enumerate(prs.slides):
+                slide_content = []
+                slide_content.append(f"Slide {i + 1}:")
+                
+                # Extract text from shapes
+                for shape in slide.shapes:
+                    if hasattr(shape, "text") and shape.text.strip():
+                        slide_content.append(shape.text.strip())
+                
+                # Extract notes if available
+                if slide.has_notes_slide and slide.notes_slide.notes_text_frame.text.strip():
+                    slide_content.append(f"Notes: {slide.notes_slide.notes_text_frame.text.strip()}")
+                
+                if len(slide_content) > 1:  # More than just the slide number
+                    documents.append("\n\n".join(slide_content))
+            
+            return documents
+            
+        except ImportError:
+            raise ImportError("python-pptx package is required to process PowerPoint files. Install with: pip install python-pptx")
+        except Exception as e:
+            logging.error(f"Failed to load PowerPoint file {self.file_path}: {e}")
+            raise
+    
+    def get_metadata(self) -> Dict[str, Any]:
+        try:
+            from pptx import Presentation
+            
+            prs = Presentation(self.file_path)
+            file_path = Path(self.file_path)
+            
+            metadata = {
+                "file_type": "powerpoint",
+                "file_size": file_path.stat().st_size,
+                "filename": file_path.name,
+                "slide_count": len(prs.slides)
+            }
+            
+            # Add document properties if available
+            if prs.core_properties:
+                core_props = prs.core_properties
+                if core_props.title:
+                    metadata["title"] = core_props.title
+                if core_props.author:
+                    metadata["author"] = core_props.author
+                if core_props.created:
+                    metadata["created"] = core_props.created.isoformat()
+                if core_props.modified:
+                    metadata["modified"] = core_props.modified.isoformat()
+            
+            return metadata
+            
+        except ImportError:
+            file_path = Path(self.file_path)
+            return {
+                "file_type": "powerpoint",
+                "file_size": file_path.stat().st_size,
+                "filename": file_path.name
+            }
+        except Exception as e:
+            logging.warning(f"Failed to extract PowerPoint metadata: {e}")
+            file_path = Path(self.file_path)
+            return {
+                "file_type": "powerpoint",
+                "file_size": file_path.stat().st_size,
+                "filename": file_path.name
+            }
+
+class HTMLProcessor(FileProcessorBase):
+    """HTML file processor for .html and .htm files."""
+    
+    def __init__(self, file_path: str, encoding: str = "utf-8"):
+        self.file_path = file_path
+        self.encoding = encoding
+    
+    def load_documents(self) -> List[str]:
+        try:
+            from bs4 import BeautifulSoup
+            
+            with open(self.file_path, 'r', encoding=self.encoding) as f:
+                html_content = f.read()
+            
+            # Parse HTML
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Remove script and style elements
+            for script in soup(["script", "style"]):
+                script.decompose()
+            
+            # Extract text content
+            text = soup.get_text()
+            
+            # Clean up whitespace
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text = ' '.join(chunk for chunk in chunks if chunk)
+            
+            return [text] if text.strip() else []
+            
+        except ImportError:
+            raise ImportError("beautifulsoup4 package is required to process HTML files. Install with: pip install beautifulsoup4")
+        except Exception as e:
+            logging.error(f"Failed to load HTML file {self.file_path}: {e}")
+            raise
+    
+    def get_metadata(self) -> Dict[str, Any]:
+        try:
+            from bs4 import BeautifulSoup
+            
+            file_path = Path(self.file_path)
+            metadata = {
+                "file_type": "html",
+                "encoding": self.encoding,
+                "file_size": file_path.stat().st_size,
+                "filename": file_path.name
+            }
+            
+            # Try to extract HTML metadata
+            try:
+                with open(self.file_path, 'r', encoding=self.encoding) as f:
+                    html_content = f.read()
+                
+                soup = BeautifulSoup(html_content, 'html.parser')
+                
+                # Extract title
+                if soup.title:
+                    metadata["title"] = soup.title.string.strip()
+                
+                # Extract meta description
+                meta_desc = soup.find("meta", attrs={"name": "description"})
+                if meta_desc and meta_desc.get("content"):
+                    metadata["description"] = meta_desc["content"]
+                
+                # Extract meta keywords
+                meta_keywords = soup.find("meta", attrs={"name": "keywords"})
+                if meta_keywords and meta_keywords.get("content"):
+                    metadata["keywords"] = meta_keywords["content"]
+                    
+            except Exception as e:
+                logging.warning(f"Failed to extract HTML metadata: {e}")
+            
+            return metadata
+            
+        except ImportError:
+            file_path = Path(self.file_path)
+            return {
+                "file_type": "html",
+                "encoding": self.encoding,
+                "file_size": file_path.stat().st_size,
+                "filename": file_path.name
+            }
+
+class SQLProcessor(FileProcessorBase):
+    """SQL file processor."""
+    
+    def __init__(self, file_path: str, encoding: str = "utf-8"):
+        self.file_path = file_path
+        self.encoding = encoding
+    
+    def load_documents(self) -> List[str]:
+        try:
+            with open(self.file_path, 'r', encoding=self.encoding) as f:
+                content = f.read().strip()
+                
+                # Split into statements by semicolon
+                statements = [stmt.strip() for stmt in content.split(';') if stmt.strip()]
+                
+                # Format each statement with a header
+                formatted_statements = []
+                for i, stmt in enumerate(statements, 1):
+                    formatted = f"SQL Statement {i}:\n{stmt}"
+                    formatted_statements.append(formatted)
+                
+                return formatted_statements if formatted_statements else []
+                
+        except Exception as e:
+            logging.error(f"Failed to load SQL file {self.file_path}: {e}")
+            raise
+    
+    def get_metadata(self) -> Dict[str, Any]:
+        file_path = Path(self.file_path)
+        return {
+            "file_type": "sql",
+            "encoding": self.encoding,
+            "file_size": file_path.stat().st_size,
+            "filename": file_path.name
+        }
+
 class UniversalFileProcessor:
     """Universal file processor that can handle multiple file types."""
     
@@ -212,15 +505,25 @@ class UniversalFileProcessor:
         '.markdown': MarkdownProcessor,
         '.csv': CSVProcessor,
         '.docx': DOCXProcessor,
+        '.xlsx': ExcelProcessor,
+        '.xls': ExcelProcessor,
+        '.pptx': PowerPointProcessor,
+        '.html': HTMLProcessor,
+        '.htm': HTMLProcessor,
+        '.sql': SQLProcessor,  # Add SQL support
     }
     
     # MIME type mapping for additional validation
     MIME_TYPES = {
-        'application/pdf': '.pdf',
-        'text/plain': '.txt',
-        'text/markdown': '.md',
-        'text/csv': '.csv',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+        'application/pdf': ['.pdf'],
+        'text/plain': ['.txt', '.sql'],  # Add SQL MIME type
+        'text/markdown': ['.md', '.markdown'],
+        'text/csv': ['.csv'],
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+        'application/vnd.ms-excel': ['.xls'],
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+        'text/html': ['.html', '.htm'],
     }
     
     def __init__(self, file_path: str):

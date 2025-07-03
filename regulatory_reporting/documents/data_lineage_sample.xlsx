@@ -1,0 +1,7 @@
+Source System,Source Table,Source Column,Transformation Logic,Target Template,Target Row,Target Column,Validation Rules
+Core Banking,ACCOUNTS,account_balance,"SUM(account_balance) WHERE account_type IN ('SAVINGS', 'CURRENT')",FINREP F 01.01,010,010,">0"
+Risk System,CREDIT_EXPOSURES,exposure_amount,SUM(exposure_amount) WHERE default_status = 'N',FINREP F 18.00,120,010,">0"
+Trading System,SECURITIES,market_value,SUM(market_value) WHERE instrument_type = 'BOND',COREP C 02.00,010,010,">0"
+Core Banking,CUSTOMER,customer_type,"COUNT(*) WHERE customer_type = 'RETAIL'",FINREP F 20.04,080,010,">0"
+Risk System,COLLATERAL,collateral_value,SUM(collateral_value) WHERE collateral_type = 'REAL_ESTATE',FINREP F 13.01,010,010,">0"
+Trading System,DERIVATIVES,fair_value,"SUM(fair_value) WHERE product_type IN ('SWAP', 'FORWARD')",COREP C 07.00,010,010,"<>0" 

@@ -1,0 +1,8 @@
+Issue Key,Summary,Status,Assignee,Priority,Created,Due Date,Epic Link
+REG-101,Implement Basel III capital requirements,In Progress,john.doe@bank.com,High,2024-06-01,2024-08-30,REG-100
+REG-102,Update COREP reporting templates,Done,jane.smith@bank.com,High,2024-06-02,2024-07-15,REG-100
+REG-103,Review FINREP data quality checks,In Review,alice.wong@bank.com,Medium,2024-06-03,2024-07-30,REG-100
+REG-104,Document regulatory calculation changes,To Do,bob.wilson@bank.com,Medium,2024-06-04,2024-08-15,REG-100
+REG-100,Basel III Implementation,In Progress,sarah.manager@bank.com,Critical,2024-06-01,2024-09-30,
+REG-105,Test new risk weight calculations,In Progress,john.doe@bank.com,High,2024-06-05,2024-08-01,REG-100
+REG-106,Update regulatory reporting documentation,To Do,jane.smith@bank.com,Medium,2024-06-06,2024-08-30,REG-100 

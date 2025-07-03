@@ -3,7 +3,11 @@
   "builds": [
     {
       "src": "api/app.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb",
+        "excludeFiles": "{.venv,.git,.env,__pycache__,*.pyc,tests,notebooks,regulatory_reporting,img}/**"
+      }
     },
     {
       "src": "frontend/package.json",
