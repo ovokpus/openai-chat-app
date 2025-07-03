@@ -480,12 +480,7 @@ async def delete_document(session_id: str, document_name: str, api_key: str):
 # Health check endpoint
 @app.get("/api/health")
 async def health_check():
-    return {
-        "status": "ok",
-        "features": ["chat", "document_upload", "rag_chat", "session_management"],
-        "supported_file_types": UniversalFileProcessor.get_supported_extensions(),
-        "active_sessions": len(user_sessions)
-    }
+    return {"status": "healthy"}
 
 # Mount routers
 app.mount("/api/chat", chat_router)
