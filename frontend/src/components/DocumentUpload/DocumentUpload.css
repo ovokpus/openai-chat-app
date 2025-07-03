@@ -57,8 +57,9 @@
 
 .upload-text {
   font-size: 1.1rem;
-  color: #e5e7eb;
+  color: #1f2937;
   margin: 0;
+  font-weight: 500;
 }
 
 .upload-link {
