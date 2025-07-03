@@ -1,10 +1,11 @@
 // API Configuration
 export const API_ENDPOINTS = {
-  UPLOAD: '/api/upload-document',
-  RAG_CHAT: '/api/rag-chat',
+  UPLOAD: '/api/documents/upload',
+  RAG_CHAT: '/api/rag',
   DELETE_DOCUMENT: '/api/documents',
   SESSION_INFO: '/api/sessions',
-  HEALTH: '/api/health'
+  HEALTH: '/api/health',
+  CHAT: '/api/chat'
 } as const;
 
 // Chat Configuration
