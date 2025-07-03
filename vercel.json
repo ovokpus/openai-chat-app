@@ -1,40 +1,24 @@
 {
   "version": 2,
+  "installCommand": "rm -rf api/services/knowledge_base/regulatory_docs api/services/knowledge_base/uploaded_docs && cd frontend && npm install && cd ../api && pip install -r requirements.txt",
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/dist",
   "functions": {
-    "api/**/*.py": {
-      "runtime": "python3.11",
-      "memory": 1024,
-      "maxDuration": 10
+    "api/app.py": {
+      "maxDuration": 30,
+      "memory": 1024
     }
   },
   "rewrites": [
     {
-      "source": "/api/:path*",
+      "source": "/api/(.*)",
       "destination": "/api/app.py"
     },
     {
-      "source": "/assets/:path*",
-      "destination": "/frontend/dist/assets/:path*"
-    },
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "header",
-          "key": "accept",
-          "value": "text/html"
-        }
-      ],
-      "destination": "/frontend/dist/index.html"
-    },
-    {
-      "source": "/:path*",
-      "destination": "/frontend/dist/:path*"
+      "source": "/(.*)",
+      "destination": "/frontend/dist/$1"
     }
   ],
-  "buildCommand": "cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/dist",
-  "installCommand": "pip install -r api/requirements.txt",
   "env": {
     "PYTHONPATH": "/var/task:/var/task/api:/var/task/aimakerspace"
   },
@@ -61,4 +45,4 @@
       ]
     }
   ]
-} 
+}
