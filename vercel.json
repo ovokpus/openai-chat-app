@@ -4,14 +4,14 @@
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
   "functions": {
-    "api/**/*.py": {
+    "api/app.py": {
       "maxDuration": 30
     }
   },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "destination": "/api/app.py"
     },
     {
       "source": "/(.*)",
