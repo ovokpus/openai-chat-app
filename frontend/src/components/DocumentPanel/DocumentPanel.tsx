@@ -20,7 +20,7 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
         <div className="empty-state">
           <DocumentIcon className="empty-icon" />
           <p className="empty-text">No documents uploaded</p>
-          <p className="empty-hint">Upload a PDF to start chatting with your documents</p>
+          <p className="empty-hint">Upload a document to start chatting with your files</p>
         </div>
       </div>
     )
@@ -61,7 +61,7 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
           <ExclamationTriangleIcon className="warning-icon" />
           <div className="warning-content">
             <p className="warning-text">Session may have expired</p>
-            <p className="warning-hint">If RAG chat isn't working, try uploading your PDF again</p>
+            <p className="warning-hint">If RAG chat isn't working, try uploading your document again</p>
           </div>
         </div>
       )}

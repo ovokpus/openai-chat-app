@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { uploadPDF, sendRAGMessage, getSessionInfo, deleteSession } from '../services/chatApi'
+import { uploadDocument, sendRAGMessage, getSessionInfo, deleteSession } from '../services/chatApi'
 import type { UploadResponse, SessionInfo, RAGChatRequest } from '../types'
 
 export const useRAG = () => {
@@ -32,12 +32,12 @@ export const useRAG = () => {
     }
   }
 
-  const handlePDFUpload = async (file: File, apiKey: string): Promise<UploadResponse | null> => {
+  const handleDocumentUpload = async (file: File, apiKey: string): Promise<UploadResponse | null> => {
     setIsUploading(true)
     setUploadError(null)
 
     try {
-      const response: UploadResponse = await uploadPDF(file, apiKey, sessionId || undefined)
+      const response: UploadResponse = await uploadDocument(file, apiKey, sessionId || undefined)
       console.log('Upload response:', response) // Debug log
       
       // Update session ID first
@@ -173,7 +173,8 @@ export const useRAG = () => {
     uploadError,
     
     // Actions
-    handlePDFUpload,
+    handleDocumentUpload,
+    handlePDFUpload: handleDocumentUpload, // Legacy alias for backward compatibility
     sendRAGChat,
     clearSession,
     refreshSessionInfo,

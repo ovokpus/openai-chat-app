@@ -11,6 +11,7 @@ import tempfile
 import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from pathlib import Path
 import sys
 import numpy as np
 
@@ -18,7 +19,7 @@ import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import aimakerspace components
-from aimakerspace.pdf_utils import PDFFileLoader
+from aimakerspace.file_utils import UniversalFileProcessor
 from aimakerspace.text_utils import CharacterTextSplitter
 from aimakerspace.vectordatabase import VectorDatabase
 from aimakerspace.openai_utils.embedding import EmbeddingModel
@@ -138,20 +139,21 @@ async def chat(request: ChatRequest):
         # Handle any errors that occur during processing
         raise HTTPException(status_code=500, detail=str(e))
 
-# New PDF upload endpoint
-@app.post("/api/upload-pdf", response_model=UploadResponse)
-async def upload_pdf(
+# New document upload endpoint (supports multiple file types)
+@app.post("/api/upload-document", response_model=UploadResponse)
+async def upload_document(
     file: UploadFile = File(...),
     session_id: Optional[str] = Form(None),
     api_key: str = Form(...)
 ):
     try:
-        print(f"📁 Starting PDF upload: {file.filename}")
+        print(f"📁 Starting document upload: {file.filename}")
         
-        # Validate file type
-        if not file.filename.lower().endswith('.pdf'):
-            print(f"❌ Invalid file type: {file.filename}")
-            raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+        # Validate file type using UniversalFileProcessor
+        if not UniversalFileProcessor.validate_file(file.filename, file.content_type):
+            supported_types = ", ".join(UniversalFileProcessor.get_supported_extensions())
+            print(f"❌ Invalid file type: {file.filename} (content-type: {file.content_type})")
+            raise HTTPException(status_code=400, detail=f"Unsupported file type. Supported types: {supported_types}")
         
         print(f"✅ File validation passed")
         
@@ -160,8 +162,9 @@ async def upload_pdf(
         session = user_sessions[session_id]
         print(f"✅ Session created/retrieved: {session_id}")
         
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+        # Save uploaded file temporarily with appropriate extension
+        file_extension = Path(file.filename).suffix.lower() if file.filename else '.tmp'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
             content = await file.read()
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
@@ -169,14 +172,14 @@ async def upload_pdf(
         print(f"✅ File saved temporarily: {tmp_file_path}")
         
         try:
-            # Process PDF using aimakerspace
-            print(f"📄 Loading PDF documents...")
-            pdf_loader = PDFFileLoader(tmp_file_path)
-            documents = pdf_loader.load_documents()
+            # Process document using UniversalFileProcessor
+            print(f"📄 Loading document...")
+            file_processor = UniversalFileProcessor(tmp_file_path)
+            documents = file_processor.load_documents()
             
             if not documents:
-                print(f"❌ No text extracted from PDF")
-                raise HTTPException(status_code=400, detail="No text could be extracted from the PDF")
+                print(f"❌ No text extracted from document")
+                raise HTTPException(status_code=400, detail="No text could be extracted from the document")
             
             print(f"✅ Extracted {len(documents)} documents")
             
@@ -253,10 +256,20 @@ async def upload_pdf(
         # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
-        print(f"❌ Unexpected error in upload_pdf: {e}")
+        print(f"❌ Unexpected error in upload_document: {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
+
+# Legacy PDF upload endpoint for backward compatibility
+@app.post("/api/upload-pdf", response_model=UploadResponse)
+async def upload_pdf(
+    file: UploadFile = File(...),
+    session_id: Optional[str] = Form(None),
+    api_key: str = Form(...)
+):
+    """Legacy endpoint that redirects to the new document upload endpoint."""
+    return await upload_document(file, session_id, api_key)
 
 # New RAG chat endpoint
 @app.post("/api/rag-chat")
@@ -411,7 +424,8 @@ async def delete_session(session_id: str):
 async def health_check():
     return {
         "status": "ok",
-        "features": ["chat", "pdf_upload", "rag_chat", "session_management"],
+        "features": ["chat", "document_upload", "rag_chat", "session_management"],
+        "supported_file_types": UniversalFileProcessor.get_supported_extensions(),
         "active_sessions": len(user_sessions)
     }
 

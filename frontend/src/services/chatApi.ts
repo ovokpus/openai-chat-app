@@ -49,7 +49,7 @@ export const sendChatMessage = async (
   return response.body?.getReader() || null
 }
 
-export const uploadPDF = async (
+export const uploadDocument = async (
   file: File,
   apiKey: string,
   sessionId?: string
@@ -61,7 +61,7 @@ export const uploadPDF = async (
     formData.append('session_id', sessionId)
   }
 
-  const response = await fetch('/api/upload-pdf', {
+  const response = await fetch('/api/upload-document', {
     method: 'POST',
     body: formData
   })
@@ -72,6 +72,15 @@ export const uploadPDF = async (
   }
 
   return response.json()
+}
+
+// Legacy function for backward compatibility
+export const uploadPDF = async (
+  file: File,
+  apiKey: string,
+  sessionId?: string
+): Promise<UploadResponse> => {
+  return uploadDocument(file, apiKey, sessionId)
 }
 
 export const sendRAGMessage = async (

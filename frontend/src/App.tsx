@@ -1,7 +1,7 @@
 import { KeyIcon, PaperAirplaneIcon, SparklesIcon } from '@heroicons/react/24/solid'
 import { useChat } from './hooks/useChat'
 import { useRAG } from './hooks/useRAG'
-import { WelcomeSection, MessageBubble, LoadingIndicator, PDFUpload, DocumentPanel } from './components'
+import { WelcomeSection, MessageBubble, LoadingIndicator, DocumentUpload, DocumentPanel } from './components'
 import 'katex/dist/katex.min.css'
 import './App.css'
 import { useState, useRef, useEffect } from 'react'
@@ -68,7 +68,7 @@ function App() {
         if (!isValidSession) {
           addMessage({ 
             role: 'assistant', 
-            content: 'Your session has expired. Please upload your PDF again to continue using RAG mode.' 
+            content: 'Your session has expired. Please upload your document again to continue using RAG mode.' 
           })
           setRagMode(false)
           setIsLoading(false)
@@ -158,7 +158,7 @@ function App() {
 
   const handleUploadSuccess = async (response: any) => {
     console.log('Upload successful in App:', response)
-    setRagMode(true) // Auto-enable RAG mode when PDF is uploaded
+    setRagMode(true) // Auto-enable RAG mode when document is uploaded
     clearUploadError()
     setShowUploadError(false)
     
@@ -286,7 +286,7 @@ function App() {
           {/* Sidebar for PDF Upload and Document Management */}
           {apiKey && (
             <div className="sidebar">
-              <PDFUpload
+              <DocumentUpload
                 apiKey={apiKey}
                 sessionId={sessionInfo?.session_id}
                 onUploadSuccess={handleUploadSuccess}
