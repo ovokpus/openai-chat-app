@@ -24,7 +24,8 @@ const SUPPORTED_FILE_TYPES = {
   '.xls': 'Excel Spreadsheet (Legacy)',
   '.pptx': 'PowerPoint Presentation',
   '.html': 'HTML Document',
-  '.htm': 'HTML Document'
+  '.htm': 'HTML Document',
+  '.sql': 'SQL Script'
 }
 
 const SUPPORTED_MIME_TYPES = [
@@ -37,7 +38,9 @@ const SUPPORTED_MIME_TYPES = [
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'text/html',
-  'application/html'
+  'application/html',
+  'application/sql',
+  'text/x-sql'
 ]
 
 export const DocumentUpload: React.FC<DocumentUploadProps> = ({
@@ -100,6 +103,8 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
       case '.html':
       case '.htm':
         return '🌐'
+      case '.sql':
+        return '🗄️'
       default:
         return '📄'
     }

@@ -524,6 +524,8 @@ class UniversalFileProcessor:
         'application/vnd.ms-excel': ['.xls'],
         'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
         'text/html': ['.html', '.htm'],
+        'application/sql': ['.sql'],  # SQL MIME type
+        'text/x-sql': ['.sql'],  # Alternative SQL MIME type
     }
     
     def __init__(self, file_path: str):

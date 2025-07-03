@@ -219,7 +219,7 @@
 
 /* Sidebar - Fixed width on desktop */
 .sidebar {
-  flex: 0 0 320px;
+  flex: 0 0 400px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   border-radius: 1rem;
@@ -400,6 +400,12 @@
 }
 
 /* Responsive Design */
+@media (max-width: 1200px) {
+  .sidebar {
+    flex: 0 0 360px;
+  }
+}
+
 @media (max-width: 1024px) {
   .layout-container {
     flex-direction: column;
