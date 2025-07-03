@@ -39,6 +39,6 @@
     }
   ],
   "env": {
-    "PYTHONPATH": ".:api"
+    "PYTHONPATH": "/var/task:/var/task/api:/var/task/aimakerspace"
   }
 } 

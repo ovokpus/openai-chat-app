@@ -17,8 +17,12 @@ import numpy as np
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
-# Add the project root to the Python path for aimakerspace imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Import routers
+from routers.chat import router as chat_router
+from routers.rag import router as rag_router
+from routers.documents import router as documents_router
+from routers.sessions import router as sessions_router
+from routers.health import router as health_router
 
 # Import aimakerspace components
 from aimakerspace.file_utils import UniversalFileProcessor
@@ -28,13 +32,6 @@ from aimakerspace.openai_utils.embedding import EmbeddingModel
 from aimakerspace.openai_utils.chatmodel import ChatOpenAI
 from aimakerspace.rag_pipeline import RAGPipeline
 from aimakerspace.openai_utils.prompts import SystemRolePrompt, UserRolePrompt
-
-# Import routers
-from routers.chat import router as chat_router
-from routers.rag import router as rag_router
-from routers.documents import router as documents_router
-from routers.sessions import router as sessions_router
-from routers.health import router as health_router
 
 # Initialize FastAPI application with a title
 app = FastAPI(title="OpenAI Chat API with RAG")

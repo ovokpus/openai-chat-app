@@ -1,11 +1,21 @@
+# FastAPI and server dependencies
 fastapi==0.115.12
 uvicorn==0.34.2
+python-multipart==0.0.18
+pydantic==2.11.4
+
+# OpenAI and RAG dependencies
 openai==1.77.0
-python-dotenv==1.0.1
-rank-bm25==0.2.2
+typing-extensions>=4.11.0
+numpy==1.26.4
+
+# Document processing dependencies
+pypdf==4.1.0
 python-docx==1.1.0
 openpyxl==3.1.2
-numpy==1.26.4
-typing-extensions>=4.11.0
-pydantic==2.11.4
-python-multipart==0.0.18
+rank-bm25==0.2.2
+python-dotenv==1.0.1
+
+# CORS and HTTP
+httpx==0.28.1
+requests==2.31.0
