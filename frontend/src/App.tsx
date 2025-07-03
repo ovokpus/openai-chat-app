@@ -1,10 +1,13 @@
-import { KeyIcon, PaperAirplaneIcon, SparklesIcon } from '@heroicons/react/24/solid'
-import { useChat } from './hooks/useChat'
-import { useRAG } from './hooks/useRAG'
-import { WelcomeSection, MessageBubble, LoadingIndicator, DocumentUpload, DocumentPanel } from './components'
-import 'katex/dist/katex.min.css'
-import './App.css'
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react';
+import { useChat } from './hooks/useChat';
+import { useRAG } from './hooks/useRAG';
+import { Header } from './components/Header/Header';
+import { ChatContainer } from './components/ChatContainer/ChatContainer';
+import { DocumentUpload } from './components/DocumentUpload/DocumentUpload';
+import { DocumentPanel } from './components/DocumentPanel/DocumentPanel';
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from './constants';
+import 'katex/dist/katex.min.css';
+import './App.css';
 
 function App() {
   const {
@@ -19,7 +22,7 @@ function App() {
     messagesEndRef,
     addMessage,
     setIsLoading
-  } = useChat()
+  } = useChat();
 
   // RAG functionality
   const {
@@ -33,68 +36,68 @@ function App() {
     clearUploadError,
     refreshSessionInfo,
     validateSession
-  } = useRAG()
+  } = useRAG();
 
   // Local state for RAG mode and UI
-  const [ragMode, setRagMode] = useState(false)
-  const [showUploadError, setShowUploadError] = useState(false)
-  const [showUploadSuccess, setShowUploadSuccess] = useState(false)
-  const [uploadSuccessMessage, setUploadSuccessMessage] = useState('')
+  const [ragMode, setRagMode] = useState(false);
+  const [showUploadError, setShowUploadError] = useState(false);
+  const [showUploadSuccess, setShowUploadSuccess] = useState(false);
+  const [uploadSuccessMessage, setUploadSuccessMessage] = useState('');
 
   // Validate session when component mounts
   useEffect(() => {
     if (sessionInfo) {
-      validateSession()
+      validateSession();
     }
-  }, [sessionInfo, validateSession])
+  }, [sessionInfo, validateSession]);
 
   // Enhanced submit handler that supports both regular and RAG chat
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || !apiKey || isLoading) return
+    e.preventDefault();
+    if (!input.trim() || !apiKey || isLoading) return;
 
-    const userMessage = input.trim()
-    setInput('')
+    const userMessage = input.trim();
+    setInput('');
 
     // Add user message to chat immediately
-    const newUserMessage = { role: 'user' as const, content: userMessage }
-    addMessage(newUserMessage)
-    setIsLoading(true)
+    const newUserMessage = { role: 'user' as const, content: userMessage };
+    addMessage(newUserMessage);
+    setIsLoading(true);
 
     try {
       if (ragMode && hasActiveSession()) {
         // Validate session before making RAG request
-        const isValidSession = await validateSession()
+        const isValidSession = await validateSession();
         if (!isValidSession) {
           addMessage({ 
             role: 'assistant', 
-            content: 'Your session has expired. Please upload your document again to continue using RAG mode.' 
-          })
-          setRagMode(false)
-          setIsLoading(false)
-          return
+            content: ERROR_MESSAGES.SESSION_EXPIRED
+          });
+          setRagMode(false);
+          setIsLoading(false);
+          return;
         }
 
         // Use RAG chat - stream the response
-        const reader = await sendRAGChat(userMessage, apiKey)
+        const reader = await sendRAGChat(userMessage, apiKey);
         
         if (reader) {
-          const decoder = new TextDecoder()
-          let assistantMessage = ''
+          const decoder = new TextDecoder();
+          let assistantMessage = '';
 
           // Add initial assistant message
-          const assistantMsg = { role: 'assistant' as const, content: '' }
-          addMessage(assistantMsg)
+          const assistantMsg = { role: 'assistant' as const, content: '' };
+          addMessage(assistantMsg);
 
           while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
+            const { done, value } = await reader.read();
+            if (done) break;
             
-            const chunk = decoder.decode(value)
-            assistantMessage += chunk
+            const chunk = decoder.decode(value);
+            assistantMessage += chunk;
             
             // Update the last message (assistant response)
-            assistantMsg.content = assistantMessage
+            assistantMsg.content = assistantMessage;
           }
         }
       } else {
@@ -111,143 +114,103 @@ function App() {
               model: 'gpt-4o-mini',
               api_key: apiKey
             }),
-          })
+          });
 
           if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
+            throw new Error(`HTTP error! status: ${response.status}`);
           }
 
-          const reader = response.body?.getReader()
-          if (!reader) throw new Error('No reader available')
+          const reader = response.body?.getReader();
+          if (!reader) throw new Error('No reader available');
 
-          const decoder = new TextDecoder()
-          let assistantMessage = ''
+          const decoder = new TextDecoder();
+          let assistantMessage = '';
 
           // Add initial assistant message
-          const assistantMsg = { role: 'assistant' as const, content: '' }
-          addMessage(assistantMsg)
+          const assistantMsg = { role: 'assistant' as const, content: '' };
+          addMessage(assistantMsg);
 
           while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
+            const { done, value } = await reader.read();
+            if (done) break;
             
-            const chunk = decoder.decode(value)
-            assistantMessage += chunk
+            const chunk = decoder.decode(value);
+            assistantMessage += chunk;
             
             // Update the last message (assistant response)
-            assistantMsg.content = assistantMessage
+            assistantMsg.content = assistantMessage;
           }
         } catch (error) {
-          console.error('Regular chat error:', error)
+          console.error('Regular chat error:', error);
           addMessage({ 
             role: 'assistant', 
             content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}` 
-          })
+          });
         }
       }
     } catch (error) {
-      console.error('Chat error:', error)
-      addMessage({ 
-        role: 'assistant', 
-        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}` 
-      })
+      console.error('Error in chat:', error);
+      addMessage({
+        role: 'assistant',
+        content: ERROR_MESSAGES.NETWORK_ERROR
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleUploadSuccess = async (response: any) => {
-    console.log('Upload successful in App:', response)
-    setRagMode(true) // Auto-enable RAG mode when document is uploaded
-    clearUploadError()
-    setShowUploadError(false)
+    console.log('Upload successful:', response);
+    setRagMode(true);
+    clearUploadError();
+    setShowUploadError(false);
     
-    // Show success message
-    setUploadSuccessMessage(`Successfully uploaded "${response.filename}" with ${response.document_count} documents`)
-    setShowUploadSuccess(true)
+    setUploadSuccessMessage(
+      `${SUCCESS_MESSAGES.UPLOAD_SUCCESS} "${response.filename}" (${response.document_count} documents)`
+    );
+    setShowUploadSuccess(true);
     
-    // Hide success message after 5 seconds
-    setTimeout(() => setShowUploadSuccess(false), 5000)
+    setTimeout(() => setShowUploadSuccess(false), 5000);
     
-    // Force refresh session info to update the document panel
     if (response.session_id) {
-      console.log('Refreshing session info for:', response.session_id)
-      await refreshSessionInfo(response.session_id)
+      await refreshSessionInfo(response.session_id);
     }
-  }
+  };
 
   const handleUploadError = (error: string) => {
-    console.error('Upload error:', error)
-    setShowUploadError(true)
-  }
+    console.error('Upload error:', error);
+    setShowUploadError(true);
+  };
 
   const handleClearSession = async () => {
-    await clearSession()
-    setRagMode(false)
-    setShowUploadSuccess(false)
-  }
+    await clearSession();
+    setRagMode(false);
+    setShowUploadSuccess(false);
+  };
+
+  const handleDocumentDeleted = async (documentName: string) => {
+    if (sessionInfo?.session_id) {
+      await refreshSessionInfo(sessionInfo.session_id);
+    }
+  };
 
   const toggleRagMode = () => {
     if (hasActiveSession()) {
-      setRagMode(!ragMode)
+      setRagMode(!ragMode);
     }
-  }
+  };
 
   return (
-    <div className="app">
-      {/* Header */}
-      <header className="header">
-        <div className="header-container">
-          <div className="header-left">
-            <h1 className="header-title">OpenAI Chat</h1>
-            {hasActiveSession() && (
-              <div className="rag-toggle">
-                <button
-                  onClick={toggleRagMode}
-                  className={`rag-toggle-button ${ragMode ? 'active' : ''}`}
-                  title={ragMode ? 'Disable RAG mode' : 'Enable RAG mode'}
-                >
-                  <SparklesIcon className="rag-toggle-icon" />
-                  {ragMode ? 'RAG ON' : 'RAG OFF'}
-                </button>
-              </div>
-            )}
-          </div>
-          <div>
-            <button
-              onClick={() => setShowApiKey(!showApiKey)}
-              className="api-key-button"
-            >
-              <KeyIcon className="api-key-icon" />
-              <span className="hidden-mobile">API Key</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* API Key Input Section */}
-      {showApiKey && (
-        <div className="api-key-section">
-          <div className="api-key-form">
-            <label className="api-key-label">
-              OpenAI API Key:
-            </label>
-            <input
-              type="password"
-              placeholder="sk-..."
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="api-key-input"
-            />
-            <button
-              onClick={() => setShowApiKey(false)}
-              className="done-button"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
+    <div className="app-container">
+      <Header 
+        showApiKey={showApiKey}
+        setShowApiKey={setShowApiKey}
+        apiKey={apiKey}
+        setApiKey={setApiKey}
+        hasRAG={hasActiveSession()}
+        ragMode={ragMode}
+        onToggleRAG={toggleRagMode}
+      />
 
       {/* Upload Success Display */}
       {showUploadSuccess && (
@@ -279,11 +242,9 @@ function App() {
         </div>
       )}
 
-      {/* Main Chat Container */}
       <main className="main-container">
         <div className="layout-container">
-          
-          {/* Sidebar for PDF Upload and Document Management */}
+          {/* Sidebar for Document Upload and Management */}
           {apiKey && (
             <div className="sidebar">
               <DocumentUpload
@@ -298,81 +259,29 @@ function App() {
                 sessionInfo={sessionInfo}
                 onClearSession={handleClearSession}
                 isLoading={isUploading}
+                apiKey={apiKey}
+                onDocumentDeleted={handleDocumentDeleted}
+                ragMode={ragMode}
               />
             </div>
           )}
 
           {/* Chat Container */}
-          <div className="chat-container">
-            {/* Messages Area */}
-            <div className="messages-area">
-              {messages.length === 0 && (
-                <WelcomeSection 
-                  apiKey={apiKey} 
-                  onEnterApiKey={() => setShowApiKey(true)}
-                  hasRAG={hasActiveSession()}
-                  ragMode={ragMode}
-                />
-              )}
-              
-              {messages.map((message, index) => (
-                <MessageBubble 
-                  key={index} 
-                  message={message} 
-                  index={index} 
-                />
-              ))}
-              
-              {isLoading && <LoadingIndicator />}
-              
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input Area */}
-            <div className="input-area">
-              {ragMode && hasActiveSession() && (
-                <div className="rag-indicator-input">
-                  <SparklesIcon className="rag-input-icon" />
-                  <span>RAG mode active - asking your documents</span>
-                </div>
-              )}
-              
-              <form onSubmit={handleSubmit} className="input-form">
-                <div className="input-wrapper">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder={ragMode && hasActiveSession() 
-                      ? "Ask a question about your uploaded documents..." 
-                      : "Type your message..."}
-                    className="message-input"
-                    disabled={isLoading || !apiKey}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={isLoading || !apiKey || !input.trim()}
-                  className="send-button"
-                >
-                  <PaperAirplaneIcon className="send-icon" />
-                  <span className="hidden-mobile">
-                    {isLoading ? 'Sending...' : 'Send'}
-                  </span>
-                </button>
-              </form>
-              
-              {!apiKey && (
-                <p className="help-text">
-                  Please enter your OpenAI API key to start chatting
-                </p>
-              )}
-            </div>
-          </div>
+          <ChatContainer
+            messages={messages}
+            input={input}
+            setInput={setInput}
+            isLoading={isLoading}
+            apiKey={apiKey}
+            onSubmit={handleSubmit}
+            messagesEndRef={messagesEndRef}
+            hasRAG={hasActiveSession()}
+            ragMode={ragMode}
+          />
         </div>
       </main>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
