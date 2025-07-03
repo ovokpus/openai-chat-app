@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { DocumentIcon, TrashIcon, SparklesIcon, ExclamationTriangleIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { DocumentIcon, TrashIcon, SparklesIcon, ExclamationTriangleIcon, XMarkIcon, CloudArrowDownIcon, ServerIcon } from '@heroicons/react/24/outline'
 import type { SessionInfo } from '../../types'
 import { deleteDocument } from '../../services/chatApi'
 import './DocumentPanel.css'
+import { CHAT_CONFIG } from '../../constants'
 
 interface DocumentPanelProps {
   sessionInfo: SessionInfo | null
@@ -11,6 +12,8 @@ interface DocumentPanelProps {
   apiKey: string
   onDocumentDeleted?: (documentName: string) => void
   ragMode: boolean
+  isUsingBackup?: boolean
+  sessionStatus?: 'no-session' | 'active' | 'backup'
 }
 
 interface ConfirmDialogProps {
@@ -50,7 +53,9 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
   isLoading = false,
   apiKey,
   onDocumentDeleted,
-  ragMode
+  ragMode,
+  isUsingBackup = false,
+  sessionStatus = 'no-session'
 }) => {
   const [deletingDocument, setDeletingDocument] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -65,16 +70,8 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
     onConfirm: () => {},
   });
 
-  if (!sessionInfo || sessionInfo.document_count === 0) {
-    return (
-      <div className="document-panel empty">
-        <div className="empty-state">
-          <DocumentIcon className="empty-icon" />
-          <p className="empty-text">No documents uploaded</p>
-          <p className="empty-hint">Upload a document to start chatting with your files</p>
-        </div>
-      </div>
-    )
+  if (!sessionInfo || !ragMode) {
+    return null;
   }
 
   const formatDate = (dateString: string) => {
@@ -85,7 +82,7 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
     setConfirmDialog({
       isOpen: true,
       title: 'Delete Document',
-      message: `Are you sure you want to delete "${documentName}"?`,
+      message: `Are you sure you want to delete "${documentName}"? This action cannot be undone.`,
       onConfirm: async () => {
         try {
           setDeletingDocument(documentName);
@@ -104,10 +101,11 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
   };
 
   const handleClearAllDocuments = () => {
+    const actionText = isUsingBackup ? 'clear the backup and all documents' : 'clear all documents';
     setConfirmDialog({
       isOpen: true,
       title: 'Clear All Documents',
-      message: 'Are you sure you want to clear all documents? This action cannot be undone.',
+      message: `Are you sure you want to ${actionText}? This action cannot be undone.`,
       onConfirm: () => {
         onClearSession();
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
@@ -115,26 +113,52 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
     });
   };
 
-  // Check if session might be stale (created more than 1 hour ago)
+  // Check if session might be stale (created more than configured timeout)
   const sessionAge = Date.now() - new Date(sessionInfo.created_at).getTime()
-  const isStaleSession = sessionAge > 60 * 60 * 1000 // 1 hour
+  const isStaleSession = sessionAge > CHAT_CONFIG.SESSION_TIMEOUT // Use configured timeout (10 minutes)
+
+  const getSessionStatusInfo = () => {
+    switch (sessionStatus) {
+      case 'active':
+        return {
+          icon: <ServerIcon className="status-icon active" />,
+          text: 'Live Session',
+          className: 'session-status active'
+        };
+      case 'backup':
+        return {
+          icon: <CloudArrowDownIcon className="status-icon backup" />,
+          text: 'Backup Session',
+          className: 'session-status backup'
+        };
+      default:
+        return {
+          icon: <SparklesIcon className="rag-icon" />,
+          text: 'RAG Session',
+          className: 'session-info'
+        };
+    }
+  };
+
+  const statusInfo = getSessionStatusInfo();
 
   return (
     <div className="document-panel">
       <div className="document-panel-header">
-        <div className="session-info">
-          <SparklesIcon className="rag-icon" />
+        <div className={statusInfo.className}>
+          {statusInfo.icon}
           <div>
-            <h3 className="session-title">RAG Session Active</h3>
+            <h3 className="session-title">{statusInfo.text} Active</h3>
             <p className="session-subtitle">
               {sessionInfo.document_count} document{sessionInfo.document_count !== 1 ? 's' : ''} loaded
+              {isUsingBackup && ' (from backup)'}
             </p>
           </div>
         </div>
         <button
           onClick={handleClearAllDocuments}
           className="clear-button"
-          title="Clear all documents"
+          title={isUsingBackup ? "Clear backup and all documents" : "Clear all documents"}
           disabled={isLoading}
         >
           <TrashIcon className="clear-icon" />
@@ -142,12 +166,24 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
         </button>
       </div>
 
-      {isStaleSession && (
+      {/* Backup Status Warning */}
+      {isUsingBackup && (
+        <div className="backup-warning">
+          <CloudArrowDownIcon className="backup-icon" />
+          <div className="backup-content">
+            <p className="backup-text">Using Backup Session</p>
+            <p className="backup-hint">Server session was lost due to serverless restart. RAG may not work - re-upload documents to restore full functionality.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Session Age Warning */}
+      {isStaleSession && !isUsingBackup && (
         <div className="session-warning">
           <ExclamationTriangleIcon className="warning-icon" />
           <div className="warning-content">
             <p className="warning-text">Session may have expired</p>
-            <p className="warning-hint">If RAG chat isn't working, try uploading your document again</p>
+            <p className="warning-hint">Production sessions expire due to serverless function restarts. If RAG chat isn't working, re-upload your documents.</p>
           </div>
         </div>
       )}
@@ -158,20 +194,24 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
             <DocumentIcon className="document-icon" />
             <div className="document-info">
               <h4 className="document-name">{document}</h4>
-              <span className="document-status">Added to chat context</span>
-            </div>
-            <button
-              onClick={() => handleDeleteDocument(document)}
-              className="delete-document-button"
-              disabled={isLoading || deletingDocument === document}
-              title="Delete document"
-            >
-              {deletingDocument === document ? (
-                <div className="button-spinner" />
-              ) : (
-                <XMarkIcon className="delete-icon" />
+              {isUsingBackup && (
+                <span className="backup-badge">backup</span>
               )}
-            </button>
+            </div>
+            {!isUsingBackup && (
+              <button
+                onClick={() => handleDeleteDocument(document)}
+                className="delete-document-button"
+                disabled={isLoading || deletingDocument === document}
+                title={`Delete ${document}`}
+              >
+                {deletingDocument === document ? (
+                  <div className="button-spinner" />
+                ) : (
+                  <XMarkIcon className="delete-icon" />
+                )}
+              </button>
+            )}
           </div>
         ))}
       </div>

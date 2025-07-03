@@ -11,9 +11,16 @@ export const API_ENDPOINTS = {
 // Chat Configuration
 export const CHAT_CONFIG = {
   DEFAULT_MODEL: 'gpt-4o-mini',
-  SESSION_TIMEOUT: 60 * 60 * 1000, // 1 hour in milliseconds
+  SESSION_TIMEOUT: 10 * 60 * 1000, // 10 minutes in milliseconds (realistic for serverless)
   MAX_RETRIES: 3,
   RETRY_DELAY: 1000 // 1 second
+} as const;
+
+// File Upload Configuration
+export const UPLOAD_CONFIG = {
+  MAX_FILE_SIZE: 15 * 1024 * 1024, // 15MB
+  CHUNK_SIZE: 1000,
+  OVERLAP_SIZE: 200
 } as const;
 
 // UI Configuration
@@ -27,16 +34,19 @@ export const UI_CONFIG = {
   },
   MAX_FILENAME_LENGTH: 30,
   TOAST_DURATION: 5000, // 5 seconds
-  ANIMATION_DURATION: 300 // 300ms
+  ANIMATION_DURATION: 200,
+  SIDEBAR_WIDTH: '400px',
+  SUCCESS_MESSAGE_DURATION: 5000
 } as const;
 
 // Error Messages
 export const ERROR_MESSAGES = {
   UPLOAD_FAILED: 'Failed to upload document. Please try again.',
-  SESSION_EXPIRED: 'Your session has expired. Please upload your document again.',
+  SESSION_EXPIRED: 'Your session has expired due to serverless function restart. Please upload your document again.',
   DELETE_FAILED: 'Failed to delete document. Please try again.',
   NETWORK_ERROR: 'Network error. Please check your connection.',
-  INVALID_API_KEY: 'Invalid API key. Please check your credentials.'
+  INVALID_API_KEY: 'Invalid API key. Please check your credentials.',
+  RAG_SESSION_LOST: 'Your document session was lost. This happens in production due to serverless restarts. Please re-upload your documents.'
 } as const;
 
 // Success Messages

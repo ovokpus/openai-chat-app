@@ -1,396 +1,442 @@
 # OpenAI Chat API Backend
 
-This is a FastAPI-based backend service that provides a streaming chat interface using OpenAI's API.
+FastAPI-based backend service providing intelligent chat capabilities with advanced document processing and RAG (Retrieval-Augmented Generation) integration.
 
-## Prerequisites
+## Overview
 
-- Python 3.8 or higher
-- pip (Python package manager)
-- An OpenAI API key
+This backend service delivers a comprehensive AI-powered chat experience featuring:
+- OpenAI integration with streaming responses
+- Multi-format document processing and analysis
+- Vector database storage for document retrieval
+- Session management for conversation continuity
+- RESTful API design with automatic documentation
 
-## Setup
+## Architecture
 
-1. Create a virtual environment (recommended):
+### Technology Stack
+- **Framework**: FastAPI 0.115.12
+- **AI Integration**: OpenAI Python SDK 1.77.0
+- **Document Processing**: Multiple specialized libraries
+- **Data Validation**: Pydantic 2.11.4
+- **Server**: Uvicorn ASGI server
+- **Vector Operations**: NumPy for embeddings
+
+### Core Components
+- **Chat Service**: OpenAI API integration with streaming
+- **Document Processor**: Multi-format file handling
+- **RAG Pipeline**: Vector search and context augmentation
+- **Session Manager**: Conversation state persistence
+- **Vector Database**: Embedding storage and retrieval
+
+## Installation and Setup
+
+### Prerequisites
+- Python 3.9 or higher
+- OpenAI API key with sufficient credits
+- Virtual environment (recommended)
+
+### Environment Setup
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-2. Install the required dependencies:
-```bash
-pip install fastapi uvicorn openai pydantic
+### Environment Configuration
+Create `.env` file in the `api` directory:
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+PYTHONPATH=.
 ```
 
-## Running the Server
-
-1. Make sure you're in the `api` directory:
+### Running the Server
 ```bash
-cd api
-```
-
-2. Start the server:
-```bash
+# Development mode
 python app.py
+
+# Production mode
+uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
-The server will start on `http://localhost:8000`
+**Server Access Points:**
+- API Base: http://localhost:8000
+- Interactive Documentation: http://localhost:8000/docs
+- Alternative Documentation: http://localhost:8000/redoc
 
-## API Endpoints
+## API Reference
 
-### Chat Endpoint
-- **URL**: `/api/chat`
-- **Method**: POST
-- **Request Body**:
+### Authentication
+All endpoints requiring OpenAI integration accept the API key via:
+- Request body parameter: `api_key`
+- Header: `Authorization: Bearer YOUR_API_KEY`
+
+### Core Endpoints
+
+#### Health Check
+```http
+GET /api/health
+```
+
+**Response:**
 ```json
 {
-    "developer_message": "string",
-    "user_message": "string",
-    "model": "gpt-4.1-mini",  // optional
-    "api_key": "your-openai-api-key"
+  "status": "healthy",
+  "features": [
+    "chat",
+    "document_upload", 
+    "rag",
+    "session_management"
+  ],
+  "version": "2.0.0"
 }
 ```
-- **Response**: Streaming text response
 
-### Health Check
-- **URL**: `/api/health`
-- **Method**: GET
-- **Response**: `{"status": "ok"}`
-
-## API Documentation
-
-Once the server is running, you can access the interactive API documentation at:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
-
-## CORS Configuration
-
-The API is configured to accept requests from any origin (`*`). This can be modified in the `app.py` file if you need to restrict access to specific domains.
-
-## Error Handling
-
-The API includes basic error handling for:
-- Invalid API keys
-- OpenAI API errors
-- General server errors
-
-All errors will return a 500 status code with an error message. 
-
-## 🚀 Document Processing Optimizations
-
-Hey there, document processing wizard! 👋 We've turbocharged our document handling system with some seriously cool optimizations. Let's dive into what makes this baby purr! 🐱
-
-### 🎯 The Challenge
-
-Processing documents for RAG (Retrieval-Augmented Generation) can be slow and memory-hungry. We needed to make it:
-- ⚡ Lightning fast
-- 🧠 Memory efficient
-- 💪 Super reliable
-- 🎮 Easy to control
-
-### 🔄 Batch Processing & Chunking Magic
-
-#### What We Did
-```python
-# Example of our optimized chunking strategy
-def process_document(text):
-    chunks = []
-    CHUNK_SIZE = 500  # Reduced from 1000
-    OVERLAP = 50      # Reduced from 200
-    BATCH_SIZE = 5    # Process 5 chunks at once
-    
-    # Create overlapping chunks
-    for i in range(0, len(text), CHUNK_SIZE - OVERLAP):
-        chunk = text[i:i + CHUNK_SIZE]
-        chunks.append(chunk)
-        
-    # Process in batches
-    for i in range(0, len(chunks), BATCH_SIZE):
-        batch = chunks[i:i + BATCH_SIZE]
-        process_batch(batch)  # Parallel processing
+#### Chat Interface
+```http
+POST /api/chat
 ```
 
-#### Why It's Awesome
-- 🎯 **Smaller Chunks**: 500 characters (down from 1000) = faster processing
-- 🔄 **Smart Overlap**: 50 characters (down from 200) = less redundancy
-- 📦 **Batch Power**: Process 5 chunks at once = 5x throughput
-- 🧠 **Memory Friend**: Smaller chunks = happy RAM
-
-### ⚡ Parallel Processing Powerhouse
-
-#### PDF Files
-```python
-async def process_pdf(pdf_path):
-    pages = extract_pdf_pages(pdf_path)
-    # Process multiple pages concurrently
-    async with asyncio.TaskGroup() as group:
-        for page in pages:
-            group.create_task(process_page(page))
+**Request Body:**
+```json
+{
+  "developer_message": "string",
+  "user_message": "string", 
+  "model": "gpt-4o-mini",
+  "api_key": "string",
+  "session_id": "string (optional)"
+}
 ```
 
-#### DOCX Files
+**Response:**
+- **Type**: Server-Sent Events (SSE)
+- **Content-Type**: `text/plain`
+- **Format**: Streaming text chunks
+
+**Example Usage:**
 ```python
-async def process_docx(docx_path):
-    sections = extract_docx_sections(docx_path)
-    # Parallel section processing
-    tasks = [process_section(section) for section in sections]
-    await asyncio.gather(*tasks)
-```
+import requests
 
-#### CSV Files
-```python
-def process_csv(csv_path):
-    # Read CSV in chunks for memory efficiency
-    for chunk in pd.read_csv(csv_path, chunksize=1000):
-        process_dataframe_chunk(chunk)
-```
-
-### 🎯 Smart Caching System
-
-We implemented a clever caching system that:
-1. 📦 Stores frequently accessed documents
-2. 🔄 Auto-updates when documents change
-3. 🧹 Self-cleans to prevent memory bloat
-
-```python
-class DocumentCache:
-    def __init__(self):
-        self.cache = LRUCache(max_size=100)  # Store up to 100 docs
-        self.ttl = 3600  # 1-hour time-to-live
-    
-    async def get_or_process(self, doc_id):
-        if doc_id in self.cache:
-            return self.cache[doc_id]
-        
-        result = await process_document(doc_id)
-        self.cache[doc_id] = result
-        return result
-```
-
-### 📊 Show Me The Numbers!
-
-Our optimizations delivered some serious gains:
-
-| Metric | Before | After | Improvement |
-|--------|---------|--------|-------------|
-| Chunk Size | 1000 chars | 500 chars | 50% smaller |
-| Overlap | 200 chars | 50 chars | 75% less |
-| Processing Speed | 1x | 5x | 500% faster |
-| Memory Usage | High | Low | ~60% reduction |
-| Error Rate | 5% | <1% | 80% more reliable |
-
-### 🎮 How to Use It
-
-```python
-from document_processor import DocumentProcessor
-
-# Initialize with optimized settings
-processor = DocumentProcessor(
-    chunk_size=500,
-    overlap=50,
-    batch_size=5,
-    enable_cache=True
+response = requests.post(
+    "http://localhost:8000/api/chat",
+    json={
+        "developer_message": "You are a helpful assistant.",
+        "user_message": "Explain quantum computing",
+        "api_key": "your-api-key-here"
+    },
+    stream=True
 )
 
-# Process any document type
-await processor.process_file("your_document.pdf")
+for chunk in response.iter_content(chunk_size=1024, decode_unicode=True):
+    if chunk:
+        print(chunk, end='')
 ```
 
-### 🚨 Error Handling Like a Pro
+### Document Management
 
-We've got your back with robust error handling:
+#### Document Upload
+```http
+POST /api/documents
+```
 
+**Request:**
+- **Content-Type**: `multipart/form-data`
+- **Body**: File upload with metadata
+
+**Parameters:**
+- `file`: Document file (required)
+- `session_id`: Session identifier (optional)
+
+**Supported Formats:**
+- PDF Documents (`.pdf`)
+- Microsoft Word (`.docx`)
+- Excel Spreadsheets (`.xlsx`, `.xls`)
+- PowerPoint Presentations (`.pptx`)
+- Text Files (`.txt`)
+- Markdown (`.md`, `.markdown`)
+- CSV Data (`.csv`)
+- HTML Documents (`.html`, `.htm`)
+
+**File Constraints:**
+- Maximum size: 15MB
+- File type validation enforced
+- Content sanitization applied
+
+**Response:**
+```json
+{
+  "document_id": "uuid",
+  "filename": "document.pdf",
+  "size": 1024000,
+  "status": "processed",
+  "chunks_created": 25,
+  "processing_time": 3.2,
+  "metadata": {
+    "pages": 10,
+    "text_length": 15000,
+    "format": "pdf"
+  }
+}
+```
+
+#### Document Listing
+```http
+GET /api/documents
+```
+
+**Query Parameters:**
+- `session_id`: Filter by session (optional)
+- `limit`: Maximum results (default: 100)
+- `offset`: Pagination offset (default: 0)
+
+**Response:**
+```json
+{
+  "documents": [
+    {
+      "document_id": "uuid",
+      "filename": "document.pdf",
+      "upload_time": "2025-07-03T10:30:00Z",
+      "size": 1024000,
+      "status": "processed"
+    }
+  ],
+  "total": 1,
+  "has_more": false
+}
+```
+
+#### Document Deletion
+```http
+DELETE /api/documents/{document_id}
+```
+
+**Response:**
+```json
+{
+  "status": "deleted",
+  "document_id": "uuid",
+  "cleanup_completed": true
+}
+```
+
+### RAG (Retrieval-Augmented Generation)
+
+#### RAG Chat
+```http
+POST /api/rag
+```
+
+**Request Body:**
+```json
+{
+  "query": "string",
+  "api_key": "string",
+  "session_id": "string (optional)",
+  "document_ids": ["uuid1", "uuid2"],
+  "max_context_length": 4000,
+  "similarity_threshold": 0.7
+}
+```
+
+**Response:**
+- **Type**: Server-Sent Events (SSE)
+- **Content-Type**: `text/plain`
+- **Format**: Streaming response with context
+
+**RAG Process:**
+1. Query embedding generation
+2. Vector similarity search across documents
+3. Context chunk retrieval and ranking
+4. Prompt augmentation with relevant context
+5. OpenAI API request with enhanced context
+6. Streaming response generation
+
+### Session Management
+
+#### Session Creation
+```http
+POST /api/sessions
+```
+
+**Request Body:**
+```json
+{
+  "session_name": "string (optional)",
+  "metadata": {
+    "user_id": "string",
+    "purpose": "string"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "session_id": "uuid",
+  "created_at": "2025-07-03T10:30:00Z",
+  "status": "active"
+}
+```
+
+#### Session Information
+```http
+GET /api/sessions/{session_id}
+```
+
+**Response:**
+```json
+{
+  "session_id": "uuid",
+  "created_at": "2025-07-03T10:30:00Z",
+  "last_activity": "2025-07-03T11:15:00Z",
+  "document_count": 3,
+  "message_count": 15,
+  "status": "active",
+  "documents": [
+    {
+      "document_id": "uuid",
+      "filename": "report.pdf",
+      "upload_time": "2025-07-03T10:45:00Z"
+    }
+  ]
+}
+```
+
+#### Session Cleanup
+```http
+DELETE /api/sessions/{session_id}
+```
+
+**Response:**
+```json
+{
+  "status": "deleted",
+  "session_id": "uuid",
+  "documents_removed": 3,
+  "vectors_cleared": 150
+}
+```
+
+## Advanced Features
+
+### Batch Document Processing
+The system supports optimized batch processing for multiple documents:
+- Concurrent processing of document chunks
+- Memory-efficient handling of large files
+- Progress tracking for long-running operations
+- Automatic retry for failed chunks
+
+### Vector Database Operations
+- **Storage**: Embeddings with metadata indexing
+- **Search**: Cosine similarity with configurable thresholds
+- **Optimization**: Automatic index management
+- **Persistence**: Session-based vector storage
+
+### Error Handling
+Comprehensive error management includes:
+- Input validation with detailed error messages
+- OpenAI API error propagation
+- File processing error recovery
+- Resource cleanup on failures
+
+## Performance Specifications
+
+### Processing Capabilities
+- **Document Size**: Up to 15MB per file
+- **Concurrent Uploads**: 3 simultaneous files
+- **Chunk Processing**: 20 chunks per batch
+- **Response Time**: Average 2-3 seconds for standard queries
+
+### Resource Usage
+- **Memory**: Optimized for 2GB allocation
+- **CPU**: Efficient multi-core utilization
+- **Storage**: Temporary file management with auto-cleanup
+
+## Security Features
+
+### Input Validation
+- File type verification
+- Content sanitization
+- Size limit enforcement
+- Malicious content detection
+
+### API Security
+- Request validation via Pydantic models
+- Error message sanitization
+- Rate limiting consideration
+- Secure environment variable handling
+
+## Development and Testing
+
+### Running Tests
+```bash
+# Unit tests
+python -m pytest tests/
+
+# Integration tests
+python -m pytest tests/integration/
+
+# API endpoint tests
+python -m pytest tests/api/
+```
+
+### Development Mode
+```bash
+# With auto-reload
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
+
+# With debug logging
+python app.py --debug
+```
+
+### API Documentation
+Access comprehensive interactive documentation:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+## Deployment Configuration
+
+### Production Environment
 ```python
-try:
-    await processor.process_file(file_path)
-except DocumentTooLargeError:
-    # Split into smaller chunks
-    await processor.process_file_in_parts(file_path)
-except UnsupportedFormatError:
-    # Convert to supported format
-    converted_path = await converter.convert(file_path)
-    await processor.process_file(converted_path)
-except Exception as e:
-    # Log and notify
-    logger.error(f"Processing failed: {e}")
-    notify_admin(e)
+# Production settings
+ENVIRONMENT=production
+LOG_LEVEL=INFO
+MAX_WORKERS=4
+TIMEOUT=60
+MEMORY_LIMIT=2048
 ```
 
-### 🎯 Best Practices
-
-1. 📏 Keep chunk sizes between 400-600 characters
-2. 🔄 Use 50-character overlap for optimal context
-3. 📦 Process in batches of 5 for best performance
-4. 💾 Enable caching for frequently accessed docs
-5. 🔍 Monitor memory usage with logging
-
-### 🚀 Future Optimizations
-
-We're not done yet! Here's what's cooking:
-- 🧠 ML-based chunk size optimization
-- ⚡ GPU acceleration for PDF processing
-- 🔄 Distributed processing support
-- 📦 Advanced caching strategies
-
-## 🚀 Parallel Processing Optimizations
-
-Hey there, speed demon! 🏎️ We've just turbocharged our document processing with some seriously cool parallel processing magic. Let's dive into what makes this baby zoom! 🏃‍♂️💨
-
-### 🎯 The Challenge
-
-Processing documents for RAG involves several steps that can be slow:
-- 🔄 Generating embeddings for each chunk
-- 💾 Storing vectors in the database
-- 🔍 Managing metadata for each chunk
-
-### ⚡ The Solution: Async All The Things!
-
-We've implemented parallel processing at every level of the stack:
-
-#### 1. 🚀 Async Embedding Generation
-
-```python
-class EmbeddingModel:
-    async def aget_embedding(self, text: str) -> List[float]:
-        """Get a single embedding asynchronously"""
-        response = await self.async_client.embeddings.create(
-            model=self.model_name,
-            input=text
-        )
-        return response.data[0].embedding
-
-    async def aget_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Get multiple embeddings in one API call"""
-        response = await self.async_client.embeddings.create(
-            model=self.model_name,
-            input=texts
-        )
-        return [data.embedding for data in response.data]
-
-    async def aget_embeddings_batched(self, texts: List[str], batch_size: int = 5):
-        """Process multiple batches in parallel"""
-        all_embeddings = []
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
-            batch_embeddings = await self.aget_embeddings(batch)
-            all_embeddings.extend(batch_embeddings)
-        return all_embeddings
+### Docker Deployment
+```dockerfile
+FROM python:3.9-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+EXPOSE 8000
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-**Why It's Awesome:**
-- 🚄 Async API calls = faster responses
-- 📦 Batch processing = fewer API calls
-- 🎯 Smart batching = optimal throughput
+## Monitoring and Observability
 
-#### 2. 💫 Async Vector Database
+### Health Monitoring
+- Endpoint availability checks
+- Response time monitoring
+- Error rate tracking
+- Resource utilization metrics
 
-```python
-class VectorDatabase:
-    async def ainsert(self, key: str, text: str, metadata: Optional[Dict] = None):
-        """Insert a single text asynchronously"""
-        vector = await self.embedding_model.aget_embedding(text)
-        self.insert(key, np.array(vector), metadata)
+### Logging
+- Structured JSON logging
+- Request/response logging
+- Error tracking with stack traces
+- Performance metrics collection
 
-    async def ainsert_batch(self, texts: List[str], metadata_list: Optional[List[Dict]] = None):
-        """Insert multiple texts in parallel"""
-        embeddings = await self.embedding_model.aget_embeddings(texts)
-        for i, (text, embedding) in enumerate(zip(texts, embeddings)):
-            metadata = metadata_list[i] if metadata_list else None
-            self.insert(text, np.array(embedding), metadata)
+---
 
-    async def asearch_by_text(self, query_text: str, k: int):
-        """Search by text asynchronously"""
-        query_vector = await self.embedding_model.aget_embedding(query_text)
-        return self.search(np.array(query_vector), k)
-```
-
-**Why It's Awesome:**
-- 🔄 Parallel insertions = faster uploads
-- 🎯 Batch metadata = better organization
-- 🔍 Async search = quicker results
-
-#### 3. 🚄 Parallel Document Processing
-
-```python
-@app.post("/api/upload-document")
-async def upload_document(file: UploadFile, session_id: Optional[str], api_key: str):
-    # Process chunks in parallel
-    BATCH_SIZE = 5
-    for i in range(0, len(chunks), BATCH_SIZE):
-        batch = chunks[i:i + BATCH_SIZE]
-        metadata_list = [{
-            "filename": file.filename,
-            "chunk_index": i + idx,
-            "upload_time": datetime.now().isoformat()
-        } for idx in range(len(batch))]
-        
-        # Process batch in parallel
-        await vector_db.ainsert_batch(batch, metadata_list)
-```
-
-**Why It's Awesome:**
-- 🚀 Parallel processing = maximum speed
-- 📦 Smart batching = optimal memory use
-- 🎯 Organized metadata = better tracking
-
-### 📊 Show Me The Numbers!
-
-Our parallel processing optimizations delivered some serious gains:
-
-| Metric | Before | After | Improvement |
-|--------|---------|--------|-------------|
-| API Calls | 1 per chunk | 1 per batch | 80% fewer calls |
-| Processing Time | Sequential | Parallel | Up to 5x faster |
-| Memory Usage | Spiky | Consistent | Better stability |
-| Error Recovery | Per chunk | Per batch | More robust |
-
-### 🎮 How to Use It
-
-```python
-from aimakerspace.vectordatabase import VectorDatabase
-from aimakerspace.openai_utils.embedding import EmbeddingModel
-
-# Initialize with async support
-embedding_model = EmbeddingModel(api_key="your-key")
-vector_db = VectorDatabase(embedding_model=embedding_model)
-
-# Process documents in parallel
-async def process_documents(texts: List[str]):
-    await vector_db.ainsert_batch(
-        texts,
-        metadata_list=[{"index": i} for i in range(len(texts))]
-    )
-```
-
-### 🎯 Best Practices
-
-1. 📦 Use batch sizes of 5 for optimal performance
-2. 🔄 Let the system handle parallelization
-3. 🎯 Include good metadata for tracking
-4. 💾 Monitor API rate limits
-5. 🔍 Use async search for better response times
-
-### 🚨 Error Handling
-
-We've got robust error handling at every level:
-
-```python
-try:
-    # Process batch with automatic retries
-    await vector_db.ainsert_batch(batch, metadata_list)
-except Exception as e:
-    # Log error and continue with next batch
-    print(f"❌ Error processing batch: {e}")
-    continue
-```
-
-### 🚀 Future Optimizations
-
-We're not done yet! Here's what's cooking:
-- 🧠 Dynamic batch sizing based on system load
-- ⚡ WebSocket progress updates
-- 🔄 Distributed processing support
-- 📦 Automatic rate limit handling
-
-## Need Help?
-
-Got questions about these optimizations? Hit us up in the issues! We're here to help you process documents at warp speed! 🚀 
+**API Version**: 2.0.0  
+**Last Updated**: July 2025  
+**FastAPI Version**: 0.115.12  
+**Production Status**: Deployed on Vercel 

@@ -35,7 +35,9 @@ function App() {
     hasActiveSession,
     clearUploadError,
     refreshSessionInfo,
-    validateSession
+    validateSession,
+    isUsingBackup,
+    getSessionStatus
   } = useRAG();
 
   // Local state for RAG mode and UI
@@ -46,10 +48,16 @@ function App() {
 
   // Validate session when component mounts
   useEffect(() => {
-    if (sessionInfo) {
-      validateSession();
+    // Only validate if we have session info but it might be stale/invalid
+    // Don't validate if we just got fresh session info from a successful operation
+    if (sessionInfo && !isUsingBackup) {
+      const sessionAge = Date.now() - new Date(sessionInfo.created_at).getTime();
+      // Only validate if session is older than 1 minute (to avoid constant validation)
+      if (sessionAge > 60 * 1000) {
+        validateSession();
+      }
     }
-  }, [sessionInfo, validateSession]);
+  }, [sessionInfo?.session_id]); // Only depend on session_id, not the whole sessionInfo object
 
   // Enhanced submit handler that supports both regular and RAG chat
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,9 +158,25 @@ function App() {
       }
     } catch (error) {
       console.error('Error in chat:', error);
+      
+      // Check if it's a session-related error
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      let displayMessage: string = ERROR_MESSAGES.NETWORK_ERROR;
+      
+      if (errorMessage.includes('Session not found') || 
+          errorMessage.includes('session has expired') ||
+          errorMessage.includes('404')) {
+        displayMessage = ERROR_MESSAGES.RAG_SESSION_LOST;
+        // Clear the invalid session state
+        setRagMode(false);
+        await clearSession();
+      } else if (errorMessage.includes('HTTP error')) {
+        displayMessage = `Server error: ${errorMessage}`;
+      }
+      
       addMessage({
         role: 'assistant',
-        content: ERROR_MESSAGES.NETWORK_ERROR
+        content: displayMessage
       });
     } finally {
       setIsLoading(false);
@@ -262,6 +286,8 @@ function App() {
                 apiKey={apiKey}
                 onDocumentDeleted={handleDocumentDeleted}
                 ragMode={ragMode}
+                isUsingBackup={isUsingBackup}
+                sessionStatus={getSessionStatus()}
               />
             </div>
           )}
