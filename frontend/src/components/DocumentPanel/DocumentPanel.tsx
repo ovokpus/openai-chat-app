@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { DocumentIcon, TrashIcon, SparklesIcon, ExclamationTriangleIcon, XMarkIcon, CloudArrowDownIcon, ServerIcon } from '@heroicons/react/24/outline'
 import type { SessionInfo } from '../../types'
 import { deleteDocument } from '../../services/chatApi'
@@ -31,19 +32,39 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onConfirm,
   onCancel
 }) => {
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onCancel]);
+
   if (!isOpen) return null;
 
-  return (
-    <div className="confirm-dialog-overlay">
-      <div className="confirm-dialog">
-        <h3 className="confirm-title">{title}</h3>
-        <p className="confirm-message">{message}</p>
-        <div className="confirm-buttons">
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onCancel();
+    }
+  };
+
+  return createPortal(
+    <div className="confirmation-overlay" onClick={handleOverlayClick}>
+      <div className="confirmation-dialog">
+        <h3>{title}</h3>
+        <p>{message}</p>
+        <div className="confirmation-buttons">
           <button onClick={onCancel} className="cancel-button">Cancel</button>
           <button onClick={onConfirm} className="confirm-button">Delete</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -72,10 +93,6 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
 
   if (!sessionInfo || !ragMode) {
     return null;
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString()
   }
 
   const handleDeleteDocument = async (documentName: string) => {
@@ -171,8 +188,8 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
         <div className="backup-warning">
           <CloudArrowDownIcon className="backup-icon" />
           <div className="backup-content">
-            <p className="backup-text">Using Backup Session</p>
-            <p className="backup-hint">Server session was lost due to serverless restart. RAG may not work - re-upload documents to restore full functionality.</p>
+            <p className="backup-text">Session Restored from Backup</p>
+            <p className="backup-hint">Your documents are available, but you may need to re-upload them if RAG chat doesn't work properly.</p>
           </div>
         </div>
       )}
@@ -182,13 +199,14 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
         <div className="session-warning">
           <ExclamationTriangleIcon className="warning-icon" />
           <div className="warning-content">
-            <p className="warning-text">Session may have expired</p>
-            <p className="warning-hint">Production sessions expire due to serverless function restarts. If RAG chat isn't working, re-upload your documents.</p>
+            <p className="warning-text">Session May Be Expired</p>
+            <p className="warning-hint">If your questions aren't getting document-based answers, try re-uploading your documents.</p>
           </div>
         </div>
       )}
 
       <div className="documents-list">
+        <h4 className="documents-title">Your Documents</h4>
         {sessionInfo.documents.map((document, index) => (
           <div key={index} className="document-item">
             <DocumentIcon className="document-icon" />
@@ -208,7 +226,7 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
                 {deletingDocument === document ? (
                   <div className="button-spinner" />
                 ) : (
-                  <XMarkIcon className="delete-icon" />
+                  <TrashIcon className="clear-icon" />
                 )}
               </button>
             )}
@@ -216,24 +234,15 @@ export const DocumentPanel: React.FC<DocumentPanelProps> = ({
         ))}
       </div>
 
-      <div className="session-details">
-        <p className="session-created">
-          Session created: {formatDate(sessionInfo.created_at)}
-        </p>
-        <p className="session-id">
-          Session ID: <code>{sessionInfo.session_id.slice(0, 8)}...</code>
-        </p>
-      </div>
-
-      <div className="rag-status">
+      <div className="rag-info-section">
         <div className={`rag-indicator ${ragMode ? 'active' : ''}`}>
           <div className="rag-dot"></div>
-          <span>{ragMode ? 'RAG mode enabled' : 'RAG mode disabled'}</span>
+          <span>{ragMode ? 'Smart Answers Active' : 'Basic Chat Mode'}</span>
         </div>
         <p className="rag-description">
           {ragMode 
-            ? "Your questions will be answered using content from uploaded documents"
-            : "Toggle RAG mode in the header to use document content for answers"
+            ? "🧠 Your questions will be answered using information from your uploaded documents, providing more accurate and relevant responses."
+            : "💬 Switch to RAG mode in the header to get answers based on your document content."
           }
         </p>
       </div>
