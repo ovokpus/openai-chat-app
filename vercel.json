@@ -37,6 +37,6 @@
     }
   ],
   "env": {
-    "PYTHONPATH": "."
+    "PYTHONPATH": ".:api"
   }
 } 
