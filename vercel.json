@@ -32,7 +32,15 @@
       "dest": "api/routers/documents.py"
     },
     {
+      "src": "/api/documents/([^/]+)/([^/]+)",
+      "dest": "api/routers/documents.py"
+    },
+    {
       "src": "/api/sessions",
+      "dest": "api/routers/sessions.py"
+    },
+    {
+      "src": "/api/session/([^/]+)",
       "dest": "api/routers/sessions.py"
     },
     {
