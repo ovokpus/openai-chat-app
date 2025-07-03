@@ -6,8 +6,9 @@
       "use": "@vercel/python"
     },
     {
-      "src": "frontend/dist/**",
-      "use": "@vercel/static"
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
     }
   ],
   "routes": [
@@ -27,5 +28,9 @@
       "src": "/(.*)",
       "dest": "frontend/dist/index.html"
     }
-  ]
+  ],
+  "env": {
+    "PYTHONPATH": ".",
+    "OPENAI_API_KEY": "@openai-api-key"
+  }
 } 
