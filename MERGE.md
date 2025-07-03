@@ -278,3 +278,239 @@ If you still encounter issues:
 4. **Check backend logs** for any error messages
 
 The RAG pipeline is now fully functional! 🚀
+
+# Multi-File Upload Support - Feature Branch Merge Instructions
+
+## 🎯 Feature Overview
+
+This feature branch (`feature/multi-file-support`) expands the RAG application to support multiple file types beyond PDFs. The implementation includes:
+
+### ✨ New File Types Supported
+- **PDF Documents** (.pdf) - Original support maintained
+- **Microsoft Word Documents** (.docx) 
+- **Plain Text Files** (.txt)
+- **Markdown Files** (.md, .markdown)
+- **CSV Files** (.csv) - Each row becomes a searchable document
+
+### 🏗️ Architecture Changes
+
+#### Backend Changes
+1. **New UniversalFileProcessor** (`aimakerspace/file_utils.py`)
+   - Modular design with processor classes for each file type
+   - Unified interface for all document processing
+   - Enhanced metadata extraction
+   - Robust error handling
+
+2. **Updated API Endpoints**
+   - New: `/api/upload-document` - Handles all file types
+   - Legacy: `/api/upload-pdf` - Maintained for backward compatibility
+   - Enhanced health check with supported file types
+
+3. **Enhanced Dependencies**
+   - Added `python-docx==1.1.2` for Word document support
+   - Updated file size limit to 15MB (from 10MB for PDFs)
+
+#### Frontend Changes
+1. **New DocumentUpload Component** (`frontend/src/components/DocumentUpload/`)
+   - Multi-format drag & drop support
+   - File type validation with helpful error messages
+   - Visual file type indicators with emojis
+   - Enhanced UI with supported formats display
+
+2. **Updated API Services**
+   - New `uploadDocument()` function
+   - Legacy `uploadPDF()` maintained for compatibility
+   - Enhanced error handling
+
+3. **UI/UX Improvements**
+   - Generic messaging (documents vs PDFs)
+   - File type icons and validation
+   - Improved user feedback
+
+## 🔄 Changes Made
+
+### Files Modified
+- `aimakerspace/file_utils.py` - **NEW** - Universal file processor
+- `api/requirements.txt` - Added python-docx dependency
+- `api/app.py` - Updated endpoints and validation
+- `frontend/src/components/DocumentUpload/` - **NEW** - Multi-format upload component
+- `frontend/src/services/chatApi.ts` - New document upload function
+- `frontend/src/hooks/useRAG.ts` - Updated to use new upload function
+- `frontend/src/App.tsx` - Updated to use DocumentUpload component
+- `frontend/src/components/index.ts` - Export new component
+- Multiple UI files - Updated text from PDF-specific to generic
+
+### Key Technical Details
+1. **File Processing Flow**:
+   ```
+   File Upload → Validation → UniversalFileProcessor → Text Extraction → 
+   Chunking → Embeddings → Vector Storage → RAG Pipeline
+   ```
+
+2. **Backward Compatibility**: All existing PDF functionality preserved
+
+3. **Error Handling**: Enhanced validation with specific error messages for each file type
+
+4. **Performance**: Optimized file processing with format-specific optimizations
+
+## 📋 Testing Completed
+
+✅ **File Processing Tests**
+- PDF documents: ✓ Working
+- Text files: ✓ Working  
+- CSV files: ✓ Working (each row becomes searchable document)
+- File validation: ✓ Working
+- Error handling: ✓ Working
+
+✅ **API Tests**  
+- New `/api/upload-document` endpoint: ✓ Working
+- Legacy `/api/upload-pdf` endpoint: ✓ Working
+- File type validation: ✓ Working
+- Error responses: ✓ Working
+
+✅ **Frontend Tests**
+- Multi-format drag & drop: ✓ Working
+- File type validation: ✓ Working
+- UI updates: ✓ Working
+- Backward compatibility: ✓ Working
+
+## 🚀 Merge Instructions
+
+### Option 1: GitHub Pull Request (Recommended)
+
+1. **Push the feature branch**:
+   ```bash
+   git push origin feature/multi-file-support
+   ```
+
+2. **Create Pull Request**:
+   - Go to GitHub repository
+   - Click "Compare & pull request" for `feature/multi-file-support`
+   - Add title: "feat: Add multi-file upload support for RAG system"
+   - Add description with this MERGE.md content
+   - Request review from team members
+   - Assign appropriate labels (feature, enhancement)
+
+3. **Review Process**:
+   - Ensure all tests pass
+   - Review code changes
+   - Test functionality in staging environment
+   - Get required approvals
+
+4. **Merge**:
+   - Use "Squash and merge" to maintain clean history
+   - Delete feature branch after merge
+
+### Option 2: GitHub CLI
+
+1. **Create Pull Request**:
+   ```bash
+   gh pr create \
+     --title "feat: Add multi-file upload support for RAG system" \
+     --body-file MERGE.md \
+     --base main \
+     --head feature/multi-file-support
+   ```
+
+2. **View and manage PR**:
+   ```bash
+   gh pr view
+   gh pr review --approve
+   gh pr merge --squash --delete-branch
+   ```
+
+### Option 3: Direct Merge (Use with caution)
+
+```bash
+# Switch to main branch
+git checkout main
+
+# Pull latest changes
+git pull origin main
+
+# Merge feature branch
+git merge feature/multi-file-support
+
+# Push changes
+git push origin main
+
+# Clean up feature branch
+git branch -d feature/multi-file-support
+git push origin --delete feature/multi-file-support
+```
+
+## 🔧 Post-Merge Tasks
+
+### 1. Deploy Dependencies
+```bash
+# Backend
+cd api
+pip install -r requirements.txt
+
+# Frontend  
+cd frontend
+npm install  # No new frontend dependencies needed
+```
+
+### 2. Test Deployment
+- Verify new file types upload correctly
+- Test RAG functionality with different file formats
+- Ensure backward compatibility with existing PDF uploads
+- Monitor error logs for any issues
+
+### 3. Update Documentation
+- Update README.md with new supported file types
+- Update API documentation
+- Add examples for different file types
+
+## 🎉 Expected Benefits
+
+1. **Enhanced User Experience**: Support for common document formats
+2. **Increased Versatility**: CSV support enables data-driven Q&A
+3. **Better File Management**: Improved upload UI and validation
+4. **Robust Architecture**: Modular design enables easy addition of new formats
+5. **Backward Compatibility**: Existing users unaffected
+
+## 🔍 Monitoring & Rollback
+
+### Success Metrics
+- Upload success rate for new file types
+- RAG response quality across different formats
+- User adoption of new file types
+- Error rates and response times
+
+### Rollback Plan
+If issues arise:
+1. Revert to previous commit: `git revert <merge-commit-hash>`
+2. Or cherry-pick specific fixes from the feature branch
+3. Monitor logs and user feedback
+
+---
+
+## 📝 Technical Notes
+
+### File Size Limits
+- PDF: 15MB (increased from 10MB)
+- DOCX: 15MB
+- TXT: 15MB
+- MD: 15MB  
+- CSV: 15MB
+
+### Processing Details
+- **PDF**: Uses existing pypdf for text extraction
+- **DOCX**: Uses python-docx for paragraph extraction
+- **TXT/MD**: Direct file reading with encoding detection
+- **CSV**: Each row becomes a separate searchable document
+
+### Security Considerations
+- File type validation on both frontend and backend
+- MIME type checking in addition to extension validation
+- Size limits enforced
+- Temporary file cleanup
+
+---
+
+**Branch**: `feature/multi-file-support`  
+**Author**: Assistant  
+**Date**: July 2024  
+**Status**: Ready for merge
