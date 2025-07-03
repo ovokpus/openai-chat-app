@@ -6,7 +6,9 @@
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb",
-        "excludeFiles": "{.venv,.git,.env,__pycache__,*.pyc,tests,notebooks,regulatory_reporting,img,.vercel,node_modules,.next,*.cache,public,app,*.egg-info,dist,build}/**"
+        "runtime": "python3.11",
+        "excludeFiles": "{.venv,.git,.env,__pycache__,*.pyc,tests,notebooks,regulatory_reporting,img,.vercel,node_modules,.next,*.cache,public,app,*.egg-info,dist,build}/**",
+        "installCommand": "pip install -r api/requirements.txt"
       }
     },
     {
