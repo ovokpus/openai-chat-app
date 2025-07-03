@@ -106,6 +106,11 @@ async def rag_chat_legacy(request: Request):
 async def test_aimakerspace():
     """Test endpoint to verify aimakerspace package installation"""
     try:
+        # Add current directory to path for aimakerspace imports
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
+            
         import aimakerspace
         from aimakerspace import openai_utils, rag_pipeline
         return {

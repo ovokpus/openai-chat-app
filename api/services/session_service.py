@@ -4,8 +4,10 @@ import uuid
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-# Add parent directory to Python path for aimakerspace imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# Add api directory to path for aimakerspace imports
+api_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if api_dir not in sys.path:
+    sys.path.insert(0, api_dir)
 
 from aimakerspace.vectordatabase import VectorDatabase
 from aimakerspace.openai_utils.embedding import EmbeddingModel

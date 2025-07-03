@@ -1,7 +1,7 @@
 import numpy as np # type: ignore
 from collections import defaultdict
 from typing import List, Tuple, Callable, Dict, Any, Optional
-from aimakerspace.openai_utils.embedding import EmbeddingModel
+from .openai_utils.embedding import EmbeddingModel
 import asyncio
 
 

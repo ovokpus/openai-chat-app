@@ -4,8 +4,10 @@ import tempfile
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
 
-# Add parent directory to Python path for aimakerspace imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# Add api directory to path for aimakerspace imports
+api_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if api_dir not in sys.path:
+    sys.path.insert(0, api_dir)
 
 from aimakerspace.multi_document_processor import MultiDocumentProcessor
 from models.responses import UploadResponse, MultiDocumentUploadResponse
