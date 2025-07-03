@@ -6,7 +6,7 @@
     "api/**": {
       "excludeFiles": "{etl/**,tests/**,frontend/**,.venv/**,node_modules/**,.git/**,.vercel/**}",
       "includeFiles": "api/wheels/**",
-      "runtime": "python3.12"
+      "runtime": "@vercel/python@3.1.0"
     }
   },
   "rewrites": [
