@@ -6,9 +6,6 @@ Ensures single instances of services across all modules.
 import os
 import sys
 
-# Add parent directory to Python path for aimakerspace imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
 from .session_service import SessionService
 from .global_kb_service import GlobalKnowledgeBaseService
 

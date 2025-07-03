@@ -5,9 +5,14 @@
   "builds": [
     {
       "src": "api/**/*.py",
-      "use": "@vercel/python@4.0.0"
+      "use": "@vercel/python"
     }
   ],
+  "functions": {
+    "api/**/*.py": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
