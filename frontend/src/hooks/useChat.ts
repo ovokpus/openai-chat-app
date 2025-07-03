@@ -6,29 +6,9 @@ export const useChat = () => {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  
-  // Load API key from localStorage on init, persist changes
-  const [apiKey, setApiKeyState] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('openai-api-key') || ''
-    }
-    return ''
-  })
-  
+  const [apiKey, setApiKey] = useState('')
   const [showApiKey, setShowApiKey] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // Persist API key to localStorage whenever it changes
-  const setApiKey = (key: string) => {
-    setApiKeyState(key)
-    if (typeof window !== 'undefined') {
-      if (key) {
-        localStorage.setItem('openai-api-key', key)
-      } else {
-        localStorage.removeItem('openai-api-key')
-      }
-    }
-  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
