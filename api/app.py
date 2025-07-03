@@ -34,6 +34,7 @@ from routers.chat import router as chat_router
 from routers.rag import router as rag_router
 from routers.documents import router as documents_router
 from routers.sessions import router as sessions_router
+from routers.health import router as health_router
 
 # Initialize FastAPI application with a title
 app = FastAPI(title="OpenAI Chat API with RAG")
@@ -487,6 +488,7 @@ app.include_router(chat_router)
 app.include_router(rag_router)
 app.include_router(documents_router)
 app.include_router(sessions_router)
+app.include_router(health_router)
 
 # Entry point for running the application directly
 if __name__ == "__main__":
