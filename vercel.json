@@ -30,7 +30,6 @@
     }
   ],
   "env": {
-    "PYTHONPATH": ".",
-    "OPENAI_API_KEY": "@openai-api-key"
+    "PYTHONPATH": "."
   }
 } 
