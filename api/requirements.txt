@@ -5,7 +5,7 @@ python-multipart==0.0.18
 python-dotenv==1.1.1
 
 # Local package
-../api/wheels/aimakerspace-0.1.0-py3-none-any.whl
+wheels/aimakerspace-0.1.0-py3-none-any.whl
 
 # OpenAI and AI dependencies  
 openai==1.77.0
