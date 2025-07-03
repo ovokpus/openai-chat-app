@@ -9,8 +9,4 @@ cd ..
 # Install Python dependencies
 cd api
 python -m pip install --upgrade pip
-python -m pip install -r requirements.txt --no-cache-dir
-
-# Copy wheel file to the correct location
-mkdir -p .vercel/wheels
-cp wheels/aimakerspace-0.1.0-py3-none-any.whl .vercel/wheels/ 
+python -m pip install -r requirements.txt --no-cache-dir 

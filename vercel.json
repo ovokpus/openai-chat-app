@@ -2,12 +2,13 @@
   "version": 2,
   "buildCommand": "./vercel-build.sh",
   "outputDirectory": "frontend/dist",
-  "builds": [
-    {
-      "src": "api/**",
-      "use": "@vercel/python@4.7.2"
+  "functions": {
+    "api/**": {
+      "runtime": "python3.11",
+      "excludeFiles": "{etl/**,tests/**,frontend/**,.venv/**,node_modules/**,.git/**,.vercel/**}",
+      "includeFiles": "api/wheels/**"
     }
-  ],
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
