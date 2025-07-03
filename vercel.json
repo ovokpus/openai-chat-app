@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "installCommand": "rm -rf api/services/knowledge_base/regulatory_docs api/services/knowledge_base/uploaded_docs && cd frontend && npm install && cd ../api && pip install -r requirements.txt",
+  "installCommand": "cd frontend && npm install",
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
   "functions": {
