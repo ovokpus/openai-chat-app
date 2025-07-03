@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/routers/*.py",
+      "src": "api/app.py",
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb",
@@ -20,32 +20,8 @@
   ],
   "routes": [
     {
-      "src": "/api/chat",
-      "dest": "api/routers/chat.py"
-    },
-    {
-      "src": "/api/rag-chat",
-      "dest": "api/routers/rag.py"
-    },
-    {
-      "src": "/api/upload-document",
-      "dest": "api/routers/documents.py"
-    },
-    {
-      "src": "/api/documents/([^/]+)/([^/]+)",
-      "dest": "api/routers/documents.py"
-    },
-    {
-      "src": "/api/sessions",
-      "dest": "api/routers/sessions.py"
-    },
-    {
-      "src": "/api/session/([^/]+)",
-      "dest": "api/routers/sessions.py"
-    },
-    {
-      "src": "/api/health",
-      "dest": "api/routers/health.py"
+      "src": "/api/(.*)",
+      "dest": "api/app.py"
     },
     {
       "src": "/assets/(.*)",

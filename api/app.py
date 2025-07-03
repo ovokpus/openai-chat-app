@@ -29,6 +29,12 @@ from aimakerspace.openai_utils.chatmodel import ChatOpenAI
 from aimakerspace.rag_pipeline import RAGPipeline
 from aimakerspace.openai_utils.prompts import SystemRolePrompt, UserRolePrompt
 
+# Import routers
+from routers.chat import app as chat_router
+from routers.rag import app as rag_router
+from routers.documents import app as documents_router
+from routers.sessions import app as sessions_router
+
 # Initialize FastAPI application with a title
 app = FastAPI(title="OpenAI Chat API with RAG")
 
@@ -480,6 +486,12 @@ async def health_check():
         "supported_file_types": UniversalFileProcessor.get_supported_extensions(),
         "active_sessions": len(user_sessions)
     }
+
+# Mount routers
+app.mount("/api/chat", chat_router)
+app.mount("/api/rag-chat", rag_router)
+app.mount("/api/documents", documents_router)
+app.mount("/api/sessions", sessions_router)
 
 # Entry point for running the application directly
 if __name__ == "__main__":

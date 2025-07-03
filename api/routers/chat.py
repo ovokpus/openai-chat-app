@@ -1,13 +1,18 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from openai import OpenAI
 from typing import Optional
+import sys
+import os
+
+# Add the project root to the Python path for aimakerspace imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from aimakerspace.openai_utils.chatmodel import ChatOpenAI
 
 app = FastAPI()
 
 class ChatRequest(BaseModel):
-    developer_message: str
     user_message: str
     model: Optional[str] = "gpt-4o-mini"
     api_key: str
@@ -15,22 +20,12 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     try:
-        client = OpenAI(api_key=request.api_key)
+        chat_model = ChatOpenAI(api_key=request.api_key)
         
         async def generate():
-            stream = client.chat.completions.create(
-                model=request.model,
-                messages=[
-                    {"role": "developer", "content": request.developer_message},
-                    {"role": "user", "content": request.user_message}
-                ],
-                stream=True
-            )
-            
-            for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
-                    yield chunk.choices[0].delta.content
-
+            async for chunk in chat_model.agenerate_response(request.user_message):
+                yield chunk
+        
         return StreamingResponse(generate(), media_type="text/plain")
     
     except Exception as e:
