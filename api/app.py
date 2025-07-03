@@ -218,16 +218,20 @@ async def upload_document(
             else:
                 print(f"✅ Vector database already has proper embedding model")
             
-            print(f"💾 Processing chunks in parallel...")
+            print(f"💾 Processing chunks with optimized batching...")
             
-            # Process chunks in parallel using asyncio
-            BATCH_SIZE = 5  # Process 5 chunks at a time
+            # Optimized batch processing for production
+            BATCH_SIZE = 20  # Increased batch size for better throughput
+            MAX_CONCURRENT_BATCHES = 3  # Limit concurrent API calls
             total_batches = (len(chunks) + BATCH_SIZE - 1) // BATCH_SIZE
             
-            # Process all batches
+            print(f"📊 Processing {len(chunks)} chunks in {total_batches} batches of {BATCH_SIZE}")
+            
+            # Process batches with controlled concurrency
+            batch_tasks = []
             for i in range(0, len(chunks), BATCH_SIZE):
-                print(f"🔄 Processing batch {i//BATCH_SIZE + 1}/{total_batches}")
-                batch = chunks[i:i + BATCH_SIZE]
+                batch_end = min(i + BATCH_SIZE, len(chunks))
+                batch = chunks[i:batch_end]
                 
                 # Prepare metadata for the batch
                 metadata_list = [{
@@ -236,9 +240,24 @@ async def upload_document(
                     "upload_time": datetime.now().isoformat()
                 } for idx in range(len(batch))]
                 
-                # Process batch in parallel
-                await vector_db.ainsert_batch(batch, metadata_list)
-                print(f"✅ Batch {i//BATCH_SIZE + 1} processed")
+                batch_tasks.append((batch, metadata_list))
+            
+            # Process batches in groups to avoid overwhelming the API
+            for batch_group_start in range(0, len(batch_tasks), MAX_CONCURRENT_BATCHES):
+                batch_group_end = min(batch_group_start + MAX_CONCURRENT_BATCHES, len(batch_tasks))
+                current_group = batch_tasks[batch_group_start:batch_group_end]
+                
+                print(f"🔄 Processing batch group {batch_group_start//MAX_CONCURRENT_BATCHES + 1}/{(len(batch_tasks) + MAX_CONCURRENT_BATCHES - 1)//MAX_CONCURRENT_BATCHES}")
+                
+                # Process current group concurrently
+                group_tasks = []
+                for batch, metadata_list in current_group:
+                    task = vector_db.ainsert_batch(batch, metadata_list)
+                    group_tasks.append(task)
+                
+                # Wait for current group to complete
+                await asyncio.gather(*group_tasks)
+                print(f"✅ Batch group completed")
             
             print(f"✅ All chunks processed successfully")
             
