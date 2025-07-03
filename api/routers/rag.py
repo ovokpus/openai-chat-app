@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -15,7 +15,7 @@ from aimakerspace.openai_utils.embedding import EmbeddingModel
 from aimakerspace.vectordatabase import VectorDatabase
 from aimakerspace.rag_pipeline import RAGPipeline
 
-app = FastAPI()
+router = APIRouter()
 
 # Global storage for user sessions and their documents
 user_sessions = {}
@@ -56,7 +56,7 @@ def get_or_create_session(session_id: Optional[str] = None, api_key: Optional[st
     }
     return new_session_id
 
-@app.post("/api/rag-chat")
+@router.post("/api/rag-chat")
 async def rag_chat(request: RAGChatRequest):
     try:
         session_id = get_or_create_session(request.session_id, request.api_key)

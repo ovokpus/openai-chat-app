@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
@@ -10,14 +10,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from aimakerspace.openai_utils.chatmodel import ChatOpenAI
 
-app = FastAPI()
+router = APIRouter()
 
 class ChatRequest(BaseModel):
     user_message: str
     model: Optional[str] = "gpt-4o-mini"
     api_key: str
 
-@app.post("/api/chat")
+@router.post("/api/chat")
 async def chat(request: ChatRequest):
     try:
         chat_model = ChatOpenAI(api_key=request.api_key)

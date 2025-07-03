@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from typing import Optional
 import sys
@@ -6,6 +6,7 @@ import os
 import tempfile
 from pathlib import Path
 import uuid
+from datetime import datetime
 
 # Add the project root to the Python path for aimakerspace imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -15,7 +16,7 @@ from aimakerspace.text_utils import CharacterTextSplitter
 from aimakerspace.openai_utils.embedding import EmbeddingModel
 from aimakerspace.vectordatabase import VectorDatabase
 
-app = FastAPI()
+router = APIRouter()
 
 # Global storage for user sessions and their documents
 user_sessions = {}
@@ -56,7 +57,7 @@ def get_or_create_session(session_id: Optional[str] = None, api_key: Optional[st
     }
     return new_session_id
 
-@app.post("/api/upload-document", response_model=UploadResponse)
+@router.post("/api/upload-document", response_model=UploadResponse)
 async def upload_document(
     file: UploadFile = File(...),
     session_id: Optional[str] = Form(None),
@@ -123,7 +124,7 @@ async def upload_document(
         print(f"❌ Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/documents/{session_id}/{document_name}")
+@router.delete("/api/documents/{session_id}/{document_name}")
 async def delete_document(session_id: str, document_name: str, api_key: str):
     try:
         if session_id not in user_sessions:

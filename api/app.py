@@ -30,10 +30,10 @@ from aimakerspace.rag_pipeline import RAGPipeline
 from aimakerspace.openai_utils.prompts import SystemRolePrompt, UserRolePrompt
 
 # Import routers
-from routers.chat import app as chat_router
-from routers.rag import app as rag_router
-from routers.documents import app as documents_router
-from routers.sessions import app as sessions_router
+from routers.chat import router as chat_router
+from routers.rag import router as rag_router
+from routers.documents import router as documents_router
+from routers.sessions import router as sessions_router
 
 # Initialize FastAPI application with a title
 app = FastAPI(title="OpenAI Chat API with RAG")
@@ -482,11 +482,11 @@ async def delete_document(session_id: str, document_name: str, api_key: str):
 async def health_check():
     return {"status": "healthy"}
 
-# Mount routers
-app.mount("/api/chat", chat_router)
-app.mount("/api/rag-chat", rag_router)
-app.mount("/api/documents", documents_router)
-app.mount("/api/sessions", sessions_router)
+# Include routers
+app.include_router(chat_router)
+app.include_router(rag_router)
+app.include_router(documents_router)
+app.include_router(sessions_router)
 
 # Entry point for running the application directly
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List
 
-app = FastAPI()
+router = APIRouter()
 
 # Global storage for user sessions and their documents
 user_sessions = {}
@@ -13,7 +13,7 @@ class SessionInfo(BaseModel):
     documents: List[str]
     created_at: str
 
-@app.get("/api/sessions")
+@router.get("/api/sessions")
 async def list_sessions():
     """List all active sessions"""
     try:
@@ -29,7 +29,7 @@ async def list_sessions():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/session/{session_id}", response_model=SessionInfo)
+@router.get("/api/session/{session_id}", response_model=SessionInfo)
 async def get_session_info(session_id: str):
     """Get information about a specific session"""
     try:
@@ -48,7 +48,7 @@ async def get_session_info(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/api/session/{session_id}")
+@router.delete("/api/session/{session_id}")
 async def delete_session(session_id: str):
     """Delete a specific session"""
     try:
