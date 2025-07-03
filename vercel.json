@@ -2,11 +2,14 @@
   "version": 2,
   "buildCommand": "./vercel-build.sh",
   "outputDirectory": "frontend/dist",
+  "builderDependencies": {
+    "@vercel/python": "4.7.2"
+  },
   "functions": {
     "api/**": {
       "excludeFiles": "{etl/**,tests/**,frontend/**,.venv/**,node_modules/**,.git/**,.vercel/**}",
       "includeFiles": "api/wheels/**",
-      "runtime": "python3.12"
+      "runtime": "python3.11"
     }
   },
   "rewrites": [
