@@ -476,11 +476,11 @@ async def delete_document(session_id: str, document_name: str, api_key: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Health check endpoint
-@app.get("/api/health")
-async def health_check():
+@app.get("/")
+async def root():
     return {"status": "healthy"}
 
-# Include routers
+# Mount routers - note that each router already has the /api prefix
 app.include_router(chat_router)
 app.include_router(rag_router)
 app.include_router(documents_router)

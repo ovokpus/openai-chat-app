@@ -15,6 +15,8 @@
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": { 
+        "buildCommand": "npm run vercel-build",
+        "outputDirectory": "dist",
         "distDir": "dist",
         "excludeFiles": "{.git,node_modules,.next,*.cache,*.log,coverage,.env*}/**"
       }
@@ -26,16 +28,19 @@
       "dest": "api/app.py"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "frontend/dist/assets/$1"
+      "handle": "filesystem"
     },
     {
-      "src": "/vite.svg",
-      "dest": "frontend/dist/vite.svg"
+      "src": "/assets/(.*)",
+      "dest": "/frontend/dist/assets/$1"
+    },
+    {
+      "src": "/(.*\\.[a-z]+)$",
+      "dest": "/frontend/dist/$1"
     },
     {
       "src": "/(.*)",
-      "dest": "frontend/dist/index.html"
+      "dest": "/frontend/dist/index.html"
     }
   ],
   "env": {
