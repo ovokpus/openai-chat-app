@@ -15,11 +15,16 @@ interface DocumentUploadProps {
 // Define supported file types
 const SUPPORTED_FILE_TYPES = {
   '.pdf': 'PDF Document',
-  '.docx': 'Word Document', 
+  '.docx': 'Word Document',
   '.txt': 'Text File',
   '.md': 'Markdown File',
   '.markdown': 'Markdown File',
-  '.csv': 'CSV File'
+  '.csv': 'CSV File',
+  '.xlsx': 'Excel Spreadsheet',
+  '.xls': 'Excel Spreadsheet (Legacy)',
+  '.pptx': 'PowerPoint Presentation',
+  '.html': 'HTML Document',
+  '.htm': 'HTML Document'
 }
 
 const SUPPORTED_MIME_TYPES = [
@@ -27,7 +32,12 @@ const SUPPORTED_MIME_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'text/plain',
   'text/markdown',
-  'text/csv'
+  'text/csv',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/html',
+  'application/html'
 ]
 
 export const DocumentUpload: React.FC<DocumentUploadProps> = ({
@@ -82,6 +92,14 @@ export const DocumentUpload: React.FC<DocumentUploadProps> = ({
         return '📖'
       case '.csv':
         return '📊'
+      case '.xlsx':
+      case '.xls':
+        return '📈'
+      case '.pptx':
+        return '🎞️'
+      case '.html':
+      case '.htm':
+        return '🌐'
       default:
         return '📄'
     }

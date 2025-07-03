@@ -33,6 +33,7 @@
     "terser": "5.27.0",
     "typescript": "5.3.3",
     "vite": "5.1.0",
-    "vite-plugin-compression": "0.5.1"
+    "vite-plugin-compression": "0.5.1",
+    "vite-plugin-compression2": "2.2.0"
   }
 }

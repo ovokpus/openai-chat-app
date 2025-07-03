@@ -1,17 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import viteCompression from 'vite-plugin-compression'
+import { compression } from 'vite-plugin-compression2'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
-    viteCompression({
+    compression({
       algorithm: 'gzip',
-      ext: '.gz',
-      threshold: 1024,
-      deleteOriginFile: false
-    })
+      exclude: [/\.(br)$/, /\.(gz)$/],
+      deleteOriginalAssets: false,
+    }),
   ],
   base: '/',
   server: {
@@ -28,22 +27,21 @@ export default defineConfig({
     assetsDir: 'assets',
     emptyOutDir: true,
     sourcemap: false,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          markdown: ['react-markdown', 'rehype-katex', 'remark-gfm', 'remark-math'],
-          icons: ['@heroicons/react']
-        }
-      }
-    },
-    chunkSizeWarningLimit: 1000,
     minify: 'terser',
     terserOptions: {
       compress: {
         drop_console: true,
         drop_debugger: true
       }
-    }
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          utils: ['axios', 'react-query'],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
   }
 })

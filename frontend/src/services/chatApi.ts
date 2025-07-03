@@ -131,4 +131,26 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`)
   }
-} 
+}
+
+export const deleteDocument = async (
+  sessionId: string,
+  documentName: string,
+  apiKey: string
+): Promise<{
+  success: boolean;
+  message: string;
+  remaining_documents?: string[];
+  document_count?: number;
+}> => {
+  const response = await fetch(`/api/documents/${sessionId}/${encodeURIComponent(documentName)}?api_key=${apiKey}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}; 
