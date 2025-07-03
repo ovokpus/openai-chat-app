@@ -8,15 +8,34 @@ __pycache__/
 .venv/
 venv/
 ENV/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Node.js
+node_modules/
+.next/
+.nuxt/
+.cache/
+.output/
+dist/
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
 # Development
-.git
+.git/
 .gitignore
 .idea/
 .vscode/
 *.swp
 *.swo
 .DS_Store
+.vercel/
 
 # Testing
 tests/
@@ -25,11 +44,15 @@ test_*.py
 pytest.ini
 coverage.xml
 .coverage
+__tests__/
+*.spec.*
+*.test.*
 
 # Documentation
 docs/
 *.md
 !README.md
+!DEPLOYMENT.md
 
 # Project specific
 notebooks/
@@ -47,9 +70,28 @@ img/
 *.docx
 *.zip
 *.tar.gz
+*.gz
+*.rar
+*.7z
 
 # Frontend build artifacts
 frontend/node_modules/
 frontend/.vite/
 frontend/dist/
-frontend/coverage/ 
+frontend/coverage/
+frontend/.env*
+
+# Backend artifacts
+api/aimakerspace.egg-info/
+api/__pycache__/
+api/**/__pycache__/
+api/.pytest_cache/
+api/build/
+api/dist/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+.*.swp
+*~ 

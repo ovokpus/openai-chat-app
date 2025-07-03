@@ -2,23 +2,42 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/app.py",
+      "src": "api/routers/*.py",
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb",
-        "excludeFiles": "{.venv,.git,.env,__pycache__,*.pyc,tests,notebooks,regulatory_reporting,img}/**"
+        "excludeFiles": "{.venv,.git,.env,__pycache__,*.pyc,tests,notebooks,regulatory_reporting,img,.vercel,node_modules,.next,*.cache,public,app,*.egg-info,dist,build}/**"
       }
     },
     {
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
+      "config": { 
+        "distDir": "dist",
+        "excludeFiles": "{.git,node_modules,.next,*.cache,*.log,coverage,.env*}/**"
+      }
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "api/app.py"
+      "src": "/api/chat",
+      "dest": "api/routers/chat.py"
+    },
+    {
+      "src": "/api/rag-chat",
+      "dest": "api/routers/rag.py"
+    },
+    {
+      "src": "/api/upload-document",
+      "dest": "api/routers/documents.py"
+    },
+    {
+      "src": "/api/sessions",
+      "dest": "api/routers/sessions.py"
+    },
+    {
+      "src": "/api/health",
+      "dest": "api/routers/health.py"
     },
     {
       "src": "/assets/(.*)",
