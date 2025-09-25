@@ -4,6 +4,7 @@ import openai
 from typing import List, Optional
 import os
 import asyncio
+import numpy as np
 
 
 class EmbeddingModel:
@@ -64,6 +65,39 @@ class EmbeddingModel:
         )
 
         return embedding.data[0].embedding
+
+    async def aget_embedding(self, text: str) -> List[float]:
+        """Get embedding for a single text asynchronously."""
+        response = await self.async_client.embeddings.create(
+            model=self.embeddings_model_name,
+            input=text
+        )
+        return response.data[0].embedding
+
+    def get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Get embeddings for multiple texts."""
+        response = self.client.embeddings.create(
+            model=self.embeddings_model_name,
+            input=texts
+        )
+        return [data.embedding for data in response.data]
+
+    async def aget_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Get embeddings for multiple texts asynchronously."""
+        response = await self.async_client.embeddings.create(
+            model=self.embeddings_model_name,
+            input=texts
+        )
+        return [data.embedding for data in response.data]
+
+    async def aget_embeddings_batched(self, texts: List[str], batch_size: int = 5) -> List[List[float]]:
+        """Get embeddings for multiple texts in batches asynchronously."""
+        all_embeddings = []
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            batch_embeddings = await self.aget_embeddings(batch)
+            all_embeddings.extend(batch_embeddings)
+        return all_embeddings
 
 
 if __name__ == "__main__":

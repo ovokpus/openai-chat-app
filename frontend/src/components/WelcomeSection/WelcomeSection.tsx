@@ -49,7 +49,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
             <div className="welcome-features">
               <div className="feature-item">
                 <span className="feature-icon">📄</span>
-                <span>Chat with your PDF documents</span>
+                <span>Chat with your documents (PDF, DOCX, TXT, MD, CSV)</span>
               </div>
               <div className="feature-item">
                 <span className="feature-icon">🔍</span>
@@ -64,7 +64,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
         ) : (
           <div className="welcome-chat">
             <p className="welcome-description">
-              Start a conversation with AI! Upload a PDF to enable RAG mode and chat with your documents.
+              Start a conversation with AI! Upload a document (PDF, DOCX, TXT, MD, CSV) to enable RAG mode and chat with your documents.
             </p>
             <div className="welcome-features">
               <div className="feature-item">

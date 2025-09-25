@@ -1,5 +1,5 @@
 # Import required FastAPI components for building the API
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 # Import Pydantic for data validation and settings management
@@ -11,14 +11,21 @@ import tempfile
 import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from pathlib import Path
 import sys
 import numpy as np
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
-# Add the project root to the Python path for aimakerspace imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Import routers
+from routers.chat import router as chat_router
+from routers.rag import router as rag_router
+from routers.documents import router as documents_router
+from routers.sessions import router as sessions_router
+from routers.health import router as health_router
 
 # Import aimakerspace components
-from aimakerspace.pdf_utils import PDFFileLoader
+from aimakerspace.file_utils import UniversalFileProcessor
 from aimakerspace.text_utils import CharacterTextSplitter
 from aimakerspace.vectordatabase import VectorDatabase
 from aimakerspace.openai_utils.embedding import EmbeddingModel
@@ -72,6 +79,12 @@ class SessionInfo(BaseModel):
     document_count: int
     documents: List[str]
     created_at: str
+
+# New model for document deletion
+class DocumentDeletionRequest(BaseModel):
+    session_id: str
+    document_name: str
+    api_key: str
 
 # Helper function to get or create user session
 def get_or_create_session(session_id: Optional[str] = None, api_key: Optional[str] = None) -> str:
@@ -138,20 +151,21 @@ async def chat(request: ChatRequest):
         # Handle any errors that occur during processing
         raise HTTPException(status_code=500, detail=str(e))
 
-# New PDF upload endpoint
-@app.post("/api/upload-pdf", response_model=UploadResponse)
-async def upload_pdf(
+# New document upload endpoint (supports multiple file types)
+@app.post("/api/upload-document", response_model=UploadResponse)
+async def upload_document(
     file: UploadFile = File(...),
     session_id: Optional[str] = Form(None),
     api_key: str = Form(...)
 ):
     try:
-        print(f"📁 Starting PDF upload: {file.filename}")
+        print(f"📁 Starting document upload: {file.filename}")
         
-        # Validate file type
-        if not file.filename.lower().endswith('.pdf'):
-            print(f"❌ Invalid file type: {file.filename}")
-            raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+        # Validate file type using UniversalFileProcessor
+        if not UniversalFileProcessor.validate_file(file.filename, file.content_type):
+            supported_types = ", ".join(UniversalFileProcessor.get_supported_extensions())
+            print(f"❌ Invalid file type: {file.filename} (content-type: {file.content_type})")
+            raise HTTPException(status_code=400, detail=f"Unsupported file type. Supported types: {supported_types}")
         
         print(f"✅ File validation passed")
         
@@ -160,8 +174,9 @@ async def upload_pdf(
         session = user_sessions[session_id]
         print(f"✅ Session created/retrieved: {session_id}")
         
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+        # Save uploaded file temporarily with appropriate extension
+        file_extension = Path(file.filename).suffix.lower() if file.filename else '.tmp'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
             content = await file.read()
             tmp_file.write(content)
             tmp_file_path = tmp_file.name
@@ -169,20 +184,20 @@ async def upload_pdf(
         print(f"✅ File saved temporarily: {tmp_file_path}")
         
         try:
-            # Process PDF using aimakerspace
-            print(f"📄 Loading PDF documents...")
-            pdf_loader = PDFFileLoader(tmp_file_path)
-            documents = pdf_loader.load_documents()
+            # Process document using UniversalFileProcessor
+            print(f"📄 Loading document...")
+            file_processor = UniversalFileProcessor(tmp_file_path)
+            documents = file_processor.load_documents()
             
             if not documents:
-                print(f"❌ No text extracted from PDF")
-                raise HTTPException(status_code=400, detail="No text could be extracted from the PDF")
+                print(f"❌ No text extracted from document")
+                raise HTTPException(status_code=400, detail="No text could be extracted from the document")
             
             print(f"✅ Extracted {len(documents)} documents")
             
-            # Split text into chunks
+            # Split text into smaller chunks with less overlap for faster processing
             print(f"✂️ Splitting text into chunks...")
-            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            text_splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
             chunks = text_splitter.split_texts(documents)
             
             print(f"✅ Created {len(chunks)} chunks")
@@ -203,22 +218,46 @@ async def upload_pdf(
             else:
                 print(f"✅ Vector database already has proper embedding model")
             
-            print(f"💾 Processing chunks and storing embeddings...")
-            # Process chunks and add to vector database
-            for i, chunk in enumerate(chunks):
-                print(f"🔄 Processing chunk {i+1}/{len(chunks)}")
-                try:
-                    embedding = vector_db.embedding_model.get_embedding(chunk)
-                    metadata = {
-                        "filename": file.filename,
-                        "chunk_index": i,
-                        "upload_time": datetime.now().isoformat()
-                    }
-                    vector_db.insert(chunk, np.array(embedding), metadata)
-                    print(f"✅ Chunk {i+1} processed and stored")
-                except Exception as chunk_error:
-                    print(f"❌ Error processing chunk {i+1}: {chunk_error}")
-                    raise chunk_error
+            print(f"💾 Processing chunks with optimized batching...")
+            
+            # Optimized batch processing for production
+            BATCH_SIZE = 20  # Increased batch size for better throughput
+            MAX_CONCURRENT_BATCHES = 3  # Limit concurrent API calls
+            total_batches = (len(chunks) + BATCH_SIZE - 1) // BATCH_SIZE
+            
+            print(f"📊 Processing {len(chunks)} chunks in {total_batches} batches of {BATCH_SIZE}")
+            
+            # Process batches with controlled concurrency
+            batch_tasks = []
+            for i in range(0, len(chunks), BATCH_SIZE):
+                batch_end = min(i + BATCH_SIZE, len(chunks))
+                batch = chunks[i:batch_end]
+                
+                # Prepare metadata for the batch
+                metadata_list = [{
+                    "filename": file.filename,
+                    "chunk_index": i + idx,
+                    "upload_time": datetime.now().isoformat()
+                } for idx in range(len(batch))]
+                
+                batch_tasks.append((batch, metadata_list))
+            
+            # Process batches in groups to avoid overwhelming the API
+            for batch_group_start in range(0, len(batch_tasks), MAX_CONCURRENT_BATCHES):
+                batch_group_end = min(batch_group_start + MAX_CONCURRENT_BATCHES, len(batch_tasks))
+                current_group = batch_tasks[batch_group_start:batch_group_end]
+                
+                print(f"🔄 Processing batch group {batch_group_start//MAX_CONCURRENT_BATCHES + 1}/{(len(batch_tasks) + MAX_CONCURRENT_BATCHES - 1)//MAX_CONCURRENT_BATCHES}")
+                
+                # Process current group concurrently
+                group_tasks = []
+                for batch, metadata_list in current_group:
+                    task = vector_db.ainsert_batch(batch, metadata_list)
+                    group_tasks.append(task)
+                
+                # Wait for current group to complete
+                await asyncio.gather(*group_tasks)
+                print(f"✅ Batch group completed")
             
             print(f"✅ All chunks processed successfully")
             
@@ -253,10 +292,20 @@ async def upload_pdf(
         # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
-        print(f"❌ Unexpected error in upload_pdf: {e}")
+        print(f"❌ Unexpected error in upload_document: {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
+
+# Legacy PDF upload endpoint for backward compatibility
+@app.post("/api/upload-pdf", response_model=UploadResponse)
+async def upload_pdf(
+    file: UploadFile = File(...),
+    session_id: Optional[str] = Form(None),
+    api_key: str = Form(...)
+):
+    """Legacy endpoint that redirects to the new document upload endpoint."""
+    return await upload_document(file, session_id, api_key)
 
 # New RAG chat endpoint
 @app.post("/api/rag-chat")
@@ -406,14 +455,56 @@ async def delete_session(session_id: str):
     del user_sessions[session_id]
     return {"success": True, "message": "Session deleted successfully"}
 
+@app.delete("/api/documents/{session_id}/{document_name}")
+async def delete_document(session_id: str, document_name: str, api_key: str):
+    """Delete a specific document from a session"""
+    try:
+        if session_id not in user_sessions:
+            raise HTTPException(status_code=404, detail="Session not found")
+            
+        session = user_sessions[session_id]
+        
+        if document_name not in session["documents"]:
+            raise HTTPException(status_code=404, detail="Document not found in session")
+            
+        # Remove document from session
+        session["documents"].remove(document_name)
+        session["document_count"] = len(session["documents"])
+        
+        # If no documents left, clear the session
+        if session["document_count"] == 0:
+            del user_sessions[session_id]
+            return {"success": True, "message": "Document deleted and session cleared"}
+            
+        # Reinitialize RAG pipeline with remaining documents
+        chat_model = ChatOpenAI(model_name="gpt-4o-mini", api_key=api_key)
+        session["rag_pipeline"] = RAGPipeline(
+            llm=chat_model,
+            vector_db=session["vector_db"],
+            response_style="detailed"
+        )
+        
+        return {
+            "success": True,
+            "message": f"Document {document_name} deleted",
+            "remaining_documents": session["documents"],
+            "document_count": session["document_count"]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Health check endpoint
-@app.get("/api/health")
-async def health_check():
-    return {
-        "status": "ok",
-        "features": ["chat", "pdf_upload", "rag_chat", "session_management"],
-        "active_sessions": len(user_sessions)
-    }
+@app.get("/")
+async def root():
+    return {"status": "healthy"}
+
+# Mount routers - note that each router already has the /api prefix
+app.include_router(chat_router)
+app.include_router(rag_router)
+app.include_router(documents_router)
+app.include_router(sessions_router)
+app.include_router(health_router)
 
 # Entry point for running the application directly
 if __name__ == "__main__":

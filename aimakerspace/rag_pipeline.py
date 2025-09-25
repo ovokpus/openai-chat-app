@@ -198,40 +198,31 @@ Please answer the question based on the provided context."""
             Dictionary containing the response and metadata
         """
         try:
-            # Step 1: Search for relevant documents
-            search_results = self.search_documents(query, k=k, return_metadata=True)
+            # Search for relevant documents
+            search_results = self.search_documents(query, k=k)
             
-            if not search_results:
-                return {
-                    "response": "I couldn't find any relevant information in the uploaded documents to answer your question.",
-                    "sources": [],
-                    "metadata": "No relevant documents found"
-                }
-            
-            # Step 2: Format context
+            # Format context
             context, metadata_info = self.format_context(search_results)
             
-            # Step 3: Generate response
+            # Generate response
             response = self.generate_response(query, context, metadata_info)
             
-            # Extract source information
-            sources = []
-            for result in search_results:
-                metadata = result.get("metadata", {})
-                if "filename" in metadata:
-                    sources.append(metadata["filename"])
-            
+            # Return response with metadata
             return {
                 "response": response,
-                "sources": list(set(sources)),  # Remove duplicates
-                "metadata": metadata_info,
-                "search_results": search_results
+                "metadata": {
+                    "query": query,
+                    "num_chunks": len(search_results),
+                    "sources": metadata_info
+                }
             }
             
         except Exception as e:
             logging.error(f"Error in RAG pipeline: {e}")
             return {
-                "response": f"I encountered an error while processing your question: {str(e)}",
-                "sources": [],
-                "metadata": f"Error: {str(e)}"
+                "response": f"I encountered an error while processing your query: {str(e)}",
+                "metadata": {
+                    "error": str(e),
+                    "query": query
+                }
             } 
