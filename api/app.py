@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Import Pydantic for data validation and settings management
 from pydantic import BaseModel
 # Import OpenAI client for interacting with OpenAI's API
-from openai import OpenAI
+from openai import OpenAI, AuthenticationError
 import os
 import tempfile
 import uuid
@@ -127,9 +127,9 @@ async def chat(request: ChatRequest):
         # Initialize OpenAI client with the provided API key
         client = OpenAI(api_key=request.api_key)
         
-        # Create an async generator function for streaming responses
-        async def generate():
-            # Create a streaming chat completion request
+        # Open the stream before responding, so a missing or rejected key becomes a clear
+        # HTTP error instead of an empty 200 response.
+        try:
             stream = client.chat.completions.create(
                 model=request.model,
                 messages=[
@@ -138,15 +138,20 @@ async def chat(request: ChatRequest):
                 ],
                 stream=True  # Enable streaming response
             )
-            
-            # Yield each chunk of the response as it becomes available
+        except AuthenticationError:
+            raise HTTPException(status_code=401, detail="OpenAI rejected the API key (missing or invalid).")
+
+        # Yield each chunk of the response as it becomes available
+        async def generate():
             for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
+                if chunk.choices and chunk.choices[0].delta.content is not None:
                     yield chunk.choices[0].delta.content
 
         # Return a streaming response to the client
         return StreamingResponse(generate(), media_type="text/plain")
-    
+
+    except HTTPException:
+        raise
     except Exception as e:
         # Handle any errors that occur during processing
         raise HTTPException(status_code=500, detail=str(e))

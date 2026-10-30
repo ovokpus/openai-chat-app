@@ -1,0 +1,7 @@
+.git
+**/__pycache__
+.venv
+frontend
+regulatory_reporting
+img
+.env

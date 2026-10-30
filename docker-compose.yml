@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    ports: ["${API_PORT:-8000}:8000"]
+    # No server-side key: the OpenAI key is typed into the UI and sent with each request.
+  frontend:
+    build: ./frontend
+    ports: ["${UI_PORT:-3000}:80"]
+    depends_on:
+      api: {condition: service_healthy}
