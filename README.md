@@ -10,6 +10,10 @@ A React (Vite) frontend and a FastAPI backend. The RAG pipeline (chunking, embed
 
 ---
 
+## Business case
+
+Staff spend time searching documents for answers that are in there somewhere. This app lets people upload PDFs, spreadsheets and slides and get answers grounded in them, using a small, readable RAG library. It is a cheap way to test whether document Q&A works on your files before buying or building more. [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md) covers the use cases, an illustrative ROI model and the limits.
+
 ## 1. The idea
 
 Paste your OpenAI key in the browser and start chatting. Drop in a document and the next answers are grounded in it. The key is sent with each request and is never stored on the server.
