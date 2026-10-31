@@ -1,5 +1,7 @@
 # OpenAI Chat with RAG
 
+<p align="center"><img src="docs/assets/hero.svg" alt="OpenAI Chat with RAG" width="100%"/></p>
+
 **Chat with OpenAI models, or upload your own documents and chat with them.**
 
 A React (Vite) frontend and a FastAPI backend. The RAG pipeline (chunking, embeddings, an in-memory vector store and BM25) comes from the small `aimakerspace` library in this repo. It handles PDF, Word, Excel, PowerPoint, CSV, Markdown, HTML, SQL and text files.
@@ -13,6 +15,8 @@ A React (Vite) frontend and a FastAPI backend. The RAG pipeline (chunking, embed
 Paste your OpenAI key in the browser and start chatting. Drop in a document and the next answers are grounded in it. The key is sent with each request and is never stored on the server.
 
 ## 2. Architecture
+
+<p align="center"><img src="docs/assets/flow.svg" alt="OpenAI Chat with RAG data flow" width="100%"/></p>
 
 ```mermaid
 flowchart LR
